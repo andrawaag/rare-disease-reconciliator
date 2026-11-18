@@ -65,7 +65,7 @@ function loadGraph(key, aspectHint, onProgress) {
       return { ...entry, key: snapKey, quads, store: new Store(quads), snapshot: entry, log: [{ source: "snapshot", what: `built ${entry.generated.slice(0, 10)}`, quads: quads.length, ms: Math.round(performance.now() - t0) }, ...entry.log] };
     }
     if (settings.mode === "snapshot") throw new Error("No snapshot for this entity, and the mode is set to snapshots only.");
-    const ctx = { engine, DF: DataFactory, fetch: window.fetch.bind(window), loadText, endpoint: endpoints[settings.endpoint].url, sources: config.sources, headers: {} };
+    const ctx = harvestContext();
     const g = await harvest(ctx, key, aspectHint, onProgress);
     return { ...g, store: new Store(g.quads) };
   })());
@@ -423,9 +423,11 @@ async function missingWorksPanel(graph) {
 }
 
 // ---------- Improve Wikidata (ontology terms) ----------
+const harvestContext = () => ({ engine, DF: DataFactory, fetch: window.fetch.bind(window), loadText, endpoint: endpoints[settings.endpoint].url, sources: config.sources, headers: {} });
+
 async function termFixPanel(graph) {
   const run = async (file) => (await engine.queryBindings(fillPanel(await loadText("queries/prefixes.rq"), await loadText(file), graph.iri), { sources: [graph.store], unionDefaultGraph: true })).toArray();
-  const fix = await gatherFixes(run, graph.iri, fetch);
+  const fix = await gatherFixes(run, graph.iri, fetch, harvestContext());
   if (!fix.qid) return null;
   // The proposals come from the SPARQL copy, which lags: check the item live, so statements added minutes ago are
   // not proposed again and removals that were already done are dropped.
@@ -477,8 +479,8 @@ async function termFixPanel(graph) {
       h("h3", {}, "Proposed edits"),
       h("ul", { class: "fixes" },
         fix.own && option(fix.own, [h("b", {}, "Add "), `${fix.own.vocabulary} ID `, codeLink(fix.own), ` (${fix.own.property}).`]),
-        fix.additions.map((a) => option(a, [h("b", {}, "Add "), `${a.vocabulary} `, codeLink(a), ` (${a.property}): `,
-          a.mapping === "broad" ? `${fix.label} maps to it as a broader code; added with mapping relation “broad match”.` : a.mapping === "narrow" ? `${fix.label} maps to it as a narrower code; added with mapping relation “narrow match”.` : `${fix.label} states it as an exact match.`])),
+        fix.additions.map((a) => { const by = a.by?.join(" and ") ?? fix.label; return option(a, [h("b", {}, "Add "), `${a.vocabulary} `, codeLink(a), ` (${a.property}): `,
+          a.replaces ? `replaces the obsolete ${a.replaces}.` : a.mapping === "broad" ? `${by} maps to it as a broader code; added with mapping relation “broad match”.` : a.mapping === "narrow" ? `${by} maps to it as a narrower code; added with mapping relation “narrow match”.` : `${by} states it as an exact match.`]); }),
         fix.facts.map((f) => option(f, [h("b", {}, "Add "), `${f.vocabulary} `, h("a", { href: `https://www.wikidata.org/wiki/${f.value}`, target: "_blank", rel: "noopener" }, f.code), ` (${f.property} = ${f.value}), as stated by ${fix.label}.`])),
         fix.removals.map((r) => option(r, [h("b", {}, "Deprecate "), `${r.vocabulary} `, codeLink(r), ` (${r.property}): obsolete${r.status.from ? ` according to ${r.status.from}` : ` in ${fix.label}`}${r.status.label ? ` (“${r.status.label}”)` : ""}`, r.status.replacedBy ? [", replaced by ", h("a", { href: r.status.replacedBy, target: "_blank", rel: "noopener" }, r.status.replacedBy.split("/").pop())] : "", ". The statement stays on the item, marked deprecated with reason “withdrawn identifier value”. Unticked by default."]))),
       proposals.length > fix.removals.length ? [
@@ -489,7 +491,7 @@ async function termFixPanel(graph) {
           h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
       ] : null,
       deprecateBox,
-      h("p", { class: "muted small" }, !fix.isTerm ? "Codes were checked in EBI's Ontology Lookup Service. You run the edits yourself under your own Wikimedia account; review them first." : `Additions cite ${fix.label} (stated in, reference URL, retrieved) and mark codes with mapping relation type “exact match” (P4390). You run the edits in QuickStatements under your own Wikimedia account; review them first.`),
+      h("p", { class: "muted small" }, !fix.isTerm ? `${fix.anchors?.length ? `Additions come from the item's own ${fix.anchors.join(", ")} (read in EBI's Ontology Lookup Service) and cite that ontology. ` : ""}Codes were checked in OLS. You run the edits yourself under your own Wikimedia account; review them first.` : `Additions cite ${fix.label} (stated in, reference URL, retrieved) and mark codes with mapping relation type “exact match” (P4390). You run the edits in QuickStatements under your own Wikimedia account; review them first.`),
     ] : h("p", {}, fix.isTerm ? `Wikidata already has this term's ID and every code ${fix.label} states as an exact match.` : "No edits proposed."),
     fix.review.length ? [
       h("h3", {}, "Only on Wikidata (review; no edits proposed)"),

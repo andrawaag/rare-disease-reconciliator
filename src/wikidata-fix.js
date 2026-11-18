@@ -4,9 +4,10 @@
 //   - add codes the ontology states as exact matches but the item lacks (with qualifier P4390 = exact match);
 //   - optionally remove an ID of the same ontology that the item holds but the ontology has made obsolete.
 // Codes that only Wikidata has are listed for review; nothing is proposed for them.
-import { VOCABS, canonicalPrefix, parseTargetIri } from "./vocab.js";
-import { oboTermStatus } from "./adapters/obo.js";
-import { termIdOf } from "./model.js";
+import { VOCABS, canonicalPrefix, parseTargetIri, target } from "./vocab.js";
+import { oboTermStatus, harvestObo } from "./adapters/obo.js";
+import { checkConceptsOls } from "./adapters/ols.js";
+import { termIdOf, NS } from "./model.js";
 
 // Values for P4390 "mapping relation type".
 const MAPPING_ITEM = { exact: "Q39893449", broad: "Q39894595", narrow: "Q39893967" };
@@ -17,8 +18,46 @@ const INHERITANCE = {
 };
 const clean = (s) => String(s).replace(/["\t\n\r|]/g, " ").trim();
 
-export async function gatherFixes(run, pageIri, fetchFn) {
-  // Term pages (an OBO PURL) get all three kinds of edit; topic pages (a Wikidata item) only the removal of obsolete codes.
+// Ontologies whose current term on a Wikidata item is read on topic pages, to propose the codes it maps to.
+const ANCHORS = ["ORPHANET", "MONDO", "DOID"];
+const SKOS = "http://www.w3.org/2004/02/skos/core#";
+const ANCHOR_RELATION = { [SKOS + "exactMatch"]: "exact", [SKOS + "broadMatch"]: "broad", [SKOS + "narrowMatch"]: "narrow" };
+
+/**
+ * Topic pages (a Wikidata item): the item's current Orphanet, MONDO and Disease Ontology terms are read from OLS,
+ * and the codes they map to that the item lacks are proposed, citing the ontology that states them. Codes OLS
+ * reports obsolete or unknown are left out. `ctx`: the harvest context (OLS fetches).
+ */
+async function anchorAdditions(ctx, anchors) {
+  const found = new Map(); // property|value -> addition
+  for (const a of anchors.slice(0, 3)) {
+    const quads = await harvestObo(ctx, a.termId).catch(() => []);
+    const me = a.iri;
+    for (const q of quads) {
+      const mapping = q.subject.value === me && ANCHOR_RELATION[q.predicate.value];
+      if (!mapping) continue;
+      const t = parseTargetIri(q.object.value);
+      const canon = t && canonicalPrefix(t.prefix);
+      const vocab = canon && VOCABS[canon];
+      // Not for ontologies the item already has a current term of: MONDO's Orphanet code is not a second Orphanet ID.
+      if (!vocab?.wd || anchors.some((x) => x.canon === canon)) continue;
+      const tg = target(t.prefix, t.id);
+      const value = vocab.wdForms ? vocab.wdForms(tg.code)[0] : tg.code;
+      const key = `${vocab.wd}|${value}`;
+      const prev = found.get(key);
+      if (prev) { if (!prev.by.includes(a.label)) prev.by.push(a.label); if (mapping === "exact") { prev.mapping = "exact"; prev.optional = false; } continue; }
+      found.set(key, { vocabulary: vocab.label, code: tg.code, url: tg.iri, property: vocab.wd, value, mapping, optional: mapping !== "exact", by: [a.label], reference: a.reference });
+    }
+  }
+  if (!found.size) return [];
+  const checked = await checkConceptsOls(ctx, [...found.values()].map((x) => x.url)).catch(() => []);
+  const bad = new Set([].concat(checked?.quads ?? checked ?? []).filter((q) => q.predicate.value === NS.kr + "checkStatus" && q.object.value !== "current").map((q) => q.subject.value));
+  return [...found.values()].filter((x) => !bad.has(x.url));
+}
+
+export async function gatherFixes(run, pageIri, fetchFn, ctx = null) {
+  // Term pages (an OBO PURL) get all kinds of edit. Topic pages (a Wikidata item) get the codes the item's own
+  // current ontology terms map to, replacements of obsolete codes, and the deprecation of obsolete codes.
   const oboId = termIdOf(pageIri);
   const isTerm = !!oboId;
   const [prefix, local] = oboId ? oboId.split("_") : [null, null];
@@ -47,6 +86,7 @@ export async function gatherFixes(run, pageIri, fetchFn) {
     result.own = { property: own.wd, value: own.wdForms ? own.wdForms(local)[0] : local, vocabulary: own.label, code: `${prefix}:${local}`, url: pageIri, reference };
   }
 
+  const anchors = [];
   for (const b of mapRows) {
     const code = b.get("code")?.value;
     if (!code) continue;
@@ -75,13 +115,31 @@ export async function gatherFixes(run, pageIri, fetchFn) {
         if (!status && canon === ownCanon) status = await oboTermStatus(fetchFn, `${prefix}_${label}`).catch(() => null);
         if (status?.obsolete) {
           for (const value of wdValues.get(code)) result.removals.push({ ...row, property: vocab.wd, value, status });
+          // The ontology's replacement for the obsolete code, when it names one.
+          const rt = status.replacedBy && parseTargetIri(status.replacedBy);
+          const rc = rt && canonicalPrefix(rt.prefix);
+          if (rc && VOCABS[rc]?.wd) {
+            const tg = target(rt.prefix, rt.id), rv = VOCABS[rc];
+            result.additions.push({ vocabulary: rv.label, code: tg.code, url: tg.iri, property: rv.wd, value: rv.wdForms ? rv.wdForms(tg.code)[0] : tg.code, mapping: "exact", optional: false, by: [rv.label], replaces: `${row.vocabulary} ${label}`, reference: { item: rv.wdItem ?? null, url: tg.iri } });
+          }
           continue;
+        }
+        if (!isTerm && ANCHORS.includes(canon) && status && !status.missing) {
+          const termId = termIdOf(code);
+          if (termId) anchors.push({ termId, iri: code, canon, label: vocab.label, reference: { item: vocab.wdItem ?? null, url: canon === "ORPHANET" ? `https://www.orpha.net/en/disease/detail/${label}` : code } });
         }
         if (status?.missing) { result.review.push({ ...row, note: `not found in ${status.from}: check the code on Wikidata` }); continue; }
         if (canon === ownCanon) { result.review.push({ ...row, note: status?.label ? `“${status.label}”, a different ${own.label} term` : `a different ${own.label} term` }); continue; }
       }
       if (isTerm) result.review.push({ ...row, note: `only on Wikidata${named}` });
     }
+  }
+  if (!isTerm && ctx && anchors.length) {
+    anchors.sort((x, y) => ANCHORS.indexOf(x.canon) - ANCHORS.indexOf(y.canon));
+    const held = new Set([...wdValues.values()].flat().map((v) => v.toUpperCase()));
+    const have = new Set(result.additions.map((x) => `${x.property}|${x.value}`));
+    for (const x of await anchorAdditions(ctx, anchors)) if (!held.has(String(x.value).toUpperCase()) && !have.has(`${x.property}|${x.value}`)) result.additions.push(x);
+    result.anchors = anchors.map((a) => `${a.label} ${a.termId.split("_").pop()}`);
   }
   // Orphanet disorders: Orphanet's mode of inheritance (P1199), when Wikidata has an item for it.
   if (ownCanon === "ORPHANET") {
