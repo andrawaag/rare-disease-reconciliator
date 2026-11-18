@@ -113,3 +113,10 @@ export async function propertyValuesLive(fetchFn, qids, property) {
   }
   return out;
 }
+
+/** All statements of an item for these properties, read live: Map property -> array of statement JSON (with ids and ranks). */
+export async function statementsLive(fetchFn, qid, properties) {
+  const res = await api(fetchFn, { action: "wbgetentities", ids: qid, props: "claims" });
+  const claims = res?.entities?.[qid]?.claims ?? {};
+  return new Map([...new Set(properties)].map((p) => [p, claims[p] ?? []]));
+}

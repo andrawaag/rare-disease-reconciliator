@@ -5,8 +5,8 @@ import { normalizeConfig, panelsFor } from "./config.js";
 import { parseKey, keyString, iriToKey } from "./model.js";
 import { harvest } from "./harvest.js";
 import { searchObo } from "./adapters/obo.js";
-import { findByStatementsLive, claimValuesLive } from "./wikidata-live.js";
-import { gatherFixes, buildFixCommands, fixKey } from "./wikidata-fix.js";
+import { findByStatementsLive, claimValuesLive, statementsLive } from "./wikidata-live.js";
+import { gatherFixes, buildFixCommands, fixKey, deprecationEdit, statementValue } from "./wikidata-fix.js";
 import { gatherMissingWorks, checkOnWikidata, buildWorkCommands, workStatus, P31_LABEL } from "./wikidata-works.js";
 import { sitelinksLive, articleUrl, translateUrl, sourceLanguage, languageName, itemsForOrphaCodes, createDiseaseItems, duplicateCandidates, addOrphanetIds, DEFAULT_LANGUAGES } from "./wikipedia.js";
 import { gatherCandidate, findExisting, searchByName, buildCommands, quickStatementsUrl, propertyLabel, propertyUrl } from "./wikidata-create.js";
@@ -437,7 +437,14 @@ async function termFixPanel(graph) {
       if (fix.own && has(fix.own)) fix.own = null;
       fix.additions = fix.additions.filter((x) => !has(x));
       fix.facts = fix.facts.filter((x) => !has(x));
-      fix.removals = fix.removals.filter(has);
+    }
+  }
+  // Obsolete codes are deprecated, not removed: keep only those the item still holds with a non-deprecated rank.
+  if (fix.removals.length) {
+    const stmts = await statementsLive(fetch, fix.qid, fix.removals.map((r) => r.property)).catch(() => null);
+    if (stmts) {
+      for (const r of fix.removals) r.statements = (stmts.get(r.property) ?? []).filter((c) => String(statementValue(c)).toUpperCase() === String(r.value).toUpperCase() && c.rank !== "deprecated");
+      fix.removals = fix.removals.filter((r) => r.statements.length);
     }
   }
   const proposals = [fix.own, ...fix.additions, ...fix.facts, ...fix.removals].filter(Boolean);
@@ -445,9 +452,20 @@ async function termFixPanel(graph) {
 
   const wdLink = (qid) => h("a", { href: `https://www.wikidata.org/wiki/${qid}`, target: "_blank", rel: "noopener" }, qid);
   const codeLink = (x) => h("a", { href: x.url, target: "_blank", rel: "noopener" }, x.code);
-  const chosen = new Set([fix.own, ...fix.additions.filter((a) => !a.optional), ...fix.facts].filter(Boolean).map(fixKey)); // removals and broad/narrow mappings stay opt-in
+  const chosen = new Set([fix.own, ...fix.additions.filter((a) => !a.optional), ...fix.facts].filter(Boolean).map(fixKey)); // deprecations and broad/narrow mappings stay opt-in
   const textarea = h("textarea", { class: "qs", rows: 6, spellcheck: "false", "aria-label": "QuickStatements commands" });
-  const regenerate = () => { textarea.value = buildFixCommands(fix, chosen); };
+  const deprecateBox = h("div", { class: "deprecate" });
+  const regenerate = () => {
+    textarea.value = buildFixCommands(fix, chosen);
+    const edit = deprecationEdit(fix.qid, fix.removals.filter((r) => chosen.has(fixKey(r))), fix.label);
+    deprecateBox.replaceChildren(...(edit ? [
+      h("h3", {}, "Deprecate in Wikidata's API sandbox"),
+      h("p", { class: "small" }, `QuickStatements can't change a statement's rank. The button opens Wikidata's API sandbox with an edit that sets ${edit.count === 1 ? "this statement" : `these ${edit.count} statements`} to deprecated, with reason for deprecated rank (P2241) “withdrawn identifier value” (Q21441764). Existing qualifiers and references are kept. Check the request, then press “Make request” while logged in to Wikidata.`),
+      h("div", { class: "actions" },
+        h("a", { class: "button primary", href: edit.url, target: "_blank", rel: "noopener" }, "Open in API sandbox"),
+        h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(edit.data); e.target.textContent = "Copied"; } catch {} } }, "Copy edit JSON")),
+    ] : []));
+  };
   const option = (x, text) => h("li", {}, h("label", {},
     h("input", { type: "checkbox", checked: chosen.has(fixKey(x)), onchange: (e) => { e.target.checked ? chosen.add(fixKey(x)) : chosen.delete(fixKey(x)); regenerate(); } }),
     " ", text));
@@ -462,13 +480,16 @@ async function termFixPanel(graph) {
         fix.additions.map((a) => option(a, [h("b", {}, "Add "), `${a.vocabulary} `, codeLink(a), ` (${a.property}): `,
           a.mapping === "broad" ? `${fix.label} maps to it as a broader code; added with mapping relation “broad match”.` : a.mapping === "narrow" ? `${fix.label} maps to it as a narrower code; added with mapping relation “narrow match”.` : `${fix.label} states it as an exact match.`])),
         fix.facts.map((f) => option(f, [h("b", {}, "Add "), `${f.vocabulary} `, h("a", { href: `https://www.wikidata.org/wiki/${f.value}`, target: "_blank", rel: "noopener" }, f.code), ` (${f.property} = ${f.value}), as stated by ${fix.label}.`])),
-        fix.removals.map((r) => option(r, [h("b", {}, "Remove "), `${r.vocabulary} `, codeLink(r), ` (${r.property}): obsolete${r.status.from ? ` according to ${r.status.from}` : ` in ${fix.label}`}${r.status.label ? ` (“${r.status.label}”)` : ""}`, r.status.replacedBy ? [", replaced by ", h("a", { href: r.status.replacedBy, target: "_blank", rel: "noopener" }, r.status.replacedBy.split("/").pop())] : "", ". Unticked by default; removing a statement can't be undone from here."]))),
-      h("h3", {}, "QuickStatements"),
-      textarea,
-      h("div", { class: "actions" },
-        h("button", { type: "button", class: "primary", onclick: () => window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
-        h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
-      h("p", { class: "muted small" }, !fix.isTerm ? "Codes were checked in EBI's Ontology Lookup Service. You run the edits in QuickStatements under your own Wikimedia account; review them first." : `Additions cite ${fix.label} (stated in, reference URL, retrieved) and mark codes with mapping relation type “exact match” (P4390). You run the edits in QuickStatements under your own Wikimedia account; review them first.`),
+        fix.removals.map((r) => option(r, [h("b", {}, "Deprecate "), `${r.vocabulary} `, codeLink(r), ` (${r.property}): obsolete${r.status.from ? ` according to ${r.status.from}` : ` in ${fix.label}`}${r.status.label ? ` (“${r.status.label}”)` : ""}`, r.status.replacedBy ? [", replaced by ", h("a", { href: r.status.replacedBy, target: "_blank", rel: "noopener" }, r.status.replacedBy.split("/").pop())] : "", ". The statement stays on the item, marked deprecated with reason “withdrawn identifier value”. Unticked by default."]))),
+      proposals.length > fix.removals.length ? [
+        h("h3", {}, "QuickStatements"),
+        textarea,
+        h("div", { class: "actions" },
+          h("button", { type: "button", class: "primary", onclick: () => window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
+          h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
+      ] : null,
+      deprecateBox,
+      h("p", { class: "muted small" }, !fix.isTerm ? "Codes were checked in EBI's Ontology Lookup Service. You run the edits yourself under your own Wikimedia account; review them first." : `Additions cite ${fix.label} (stated in, reference URL, retrieved) and mark codes with mapping relation type “exact match” (P4390). You run the edits in QuickStatements under your own Wikimedia account; review them first.`),
     ] : h("p", {}, fix.isTerm ? `Wikidata already has this term's ID and every code ${fix.label} states as an exact match.` : "No edits proposed."),
     fix.review.length ? [
       h("h3", {}, "Only on Wikidata (review; no edits proposed)"),

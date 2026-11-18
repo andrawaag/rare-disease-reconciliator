@@ -102,8 +102,38 @@ export function buildFixCommands(fix, chosen, { today = new Date().toISOString()
   if (fix.own && chosen.has(fixKey(fix.own))) lines.push(`${q}\t${fix.own.property}\t"${clean(fix.own.value)}"\t${ref(fix.own.reference)}`);
   for (const a of fix.additions) if (chosen.has(fixKey(a))) lines.push(`${q}\t${a.property}\t"${clean(a.value)}"\tP4390\t${MAPPING_ITEM[a.mapping ?? "exact"]}\t${ref(a.reference)}`);
   for (const f of fix.facts ?? []) if (chosen.has(fixKey(f))) lines.push(`${q}\t${f.property}\t${f.item ? f.value : `"${clean(f.value)}"`}\t${ref(f.reference)}`);
-  for (const r of fix.removals) if (chosen.has(fixKey(r))) lines.push(`-${q}\t${r.property}\t"${clean(r.value)}"`);
+  // Obsolete codes are deprecated, not removed: QuickStatements can't set ranks, see deprecationEdit().
   return lines.join("\n");
 }
+
+// Reason for deprecated rank (P2241): withdrawn identifier value. Deprecating keeps the code findable on the item
+// (and in other databases that cite it) while marking it as no longer valid.
+const WITHDRAWN = "Q21441764";
+const statementValue = (c) => { const v = c.mainsnak?.datavalue?.value; return typeof v === "string" ? v : v?.id ?? null; };
+
+/**
+ * Deprecate statements holding obsolete codes. QuickStatements can't change a statement's rank, so this is a
+ * wbeditentity edit the visitor runs in Wikidata's API sandbox, under their own account (the sandbox adds the
+ * edit token). `removals`: chosen fix.removals, each with `statements` (live statement JSON holding the value).
+ * Returns { url, data } or null.
+ */
+export function deprecationEdit(qid, removals, label) {
+  const claims = [];
+  for (const r of removals) for (const c of r.statements ?? []) {
+    if (c.rank === "deprecated") continue;
+    const reason = { snaktype: "value", property: "P2241", datavalue: { type: "wikibase-entityid", value: { "entity-type": "item", "numeric-id": Number(WITHDRAWN.slice(1)), id: WITHDRAWN } } };
+    const held = c.qualifiers?.P2241 ?? [];
+    const qualifiers = { ...(c.qualifiers ?? {}), P2241: held.some((x) => x.datavalue?.value?.id === WITHDRAWN) ? held : [...held, reason] };
+    const order = [...new Set([...(c["qualifiers-order"] ?? []), "P2241"])];
+    claims.push({ ...c, rank: "deprecated", qualifiers, "qualifiers-order": order });
+  }
+  if (!claims.length) return null;
+  const codes = removals.map((r) => `${r.property} ${r.value}`).join(", ");
+  const by = [...new Set(removals.map((r) => r.status?.from ?? label).filter(Boolean))].join(", ") || "its source";
+  const data = JSON.stringify({ claims });
+  const params = new URLSearchParams({ action: "wbeditentity", format: "json", id: qid, data, summary: `Deprecate ${codes}: obsolete according to ${by} (reason: withdrawn identifier value)` });
+  return { url: `https://www.wikidata.org/wiki/Special:ApiSandbox#${params.toString().replace(/\+/g, "%20")}`, data, count: claims.length };
+}
+export { statementValue };
 
 export const fixKey = (x) => `${x.property}|${x.value}`;
