@@ -1,264 +1,200 @@
 {
   "entities": {
-    "wikidata:Q18618629": {
-      "name": "Denny Vrandečić",
-      "aspect": "author",
-      "iri": "https://orcid.org/0000-0002-9593-2294",
-      "file": "data/author/wikidata_Q18618629.nq.gz",
-      "quads": 2884,
-      "bytes": 30976,
-      "generated": "2026-11-18T08:02:00.659Z",
-      "endpoint": "https://qlever.dev/api/wikidata",
-      "log": [
-        {
-          "source": "wikidata",
-          "what": "author neighbourhood",
-          "quads": 1369,
-          "ms": 1155
-        },
-        {
-          "source": "datacite",
-          "what": "works with this ORCID",
-          "quads": 0,
-          "ms": 680
-        },
-        {
-          "source": "orcid",
-          "what": "record and works",
-          "quads": 10,
-          "ms": 692
-        },
-        {
-          "source": "openalex",
-          "what": "works by this author",
-          "quads": 2336,
-          "ms": 1900
-        },
-        {
-          "source": "crossref",
-          "what": "works with this ORCID",
-          "quads": 60,
-          "ms": 3772
-        },
-        {
-          "source": "pubmed",
-          "what": "38 DOIs looked up in PubMed (RDF Portal)",
-          "quads": 30,
-          "ms": 3679
-        }
-      ]
-    },
-    "orcid:0000-0001-9488-1870": {
-      "name": "Daniel Mietchen",
-      "aspect": "author",
-      "iri": "https://orcid.org/0000-0001-9488-1870",
-      "file": "data/author/orcid_0000-0001-9488-1870.nq.gz",
-      "quads": 32782,
-      "bytes": 311572,
-      "generated": "2026-11-18T08:02:17.253Z",
-      "endpoint": "https://qlever.dev/api/wikidata",
-      "log": [
-        {
-          "source": "wikidata",
-          "what": "author neighbourhood",
-          "quads": 6826,
-          "ms": 3019
-        },
-        {
-          "source": "orcid",
-          "what": "record and works",
-          "quads": 1295,
-          "ms": 666
-        },
-        {
-          "source": "datacite",
-          "what": "works with this ORCID",
-          "quads": 6925,
-          "ms": 1174
-        },
-        {
-          "source": "openalex",
-          "what": "works by this author",
-          "quads": 15572,
-          "ms": 2612
-        },
-        {
-          "source": "crossref",
-          "what": "works with this ORCID",
-          "quads": 5911,
-          "ms": 4309
-        },
-        {
-          "source": "crossref",
-          "what": "141 more DOIs from ORCID",
-          "quads": 270,
-          "ms": 2344
-        },
-        {
-          "source": "datacite",
-          "what": "135 more DOIs from ORCID",
-          "quads": 3617,
-          "ms": 1596
-        },
-        {
-          "source": "pubmed",
-          "what": "574 DOIs looked up in PubMed (RDF Portal)",
-          "quads": 452,
-          "ms": 3615
-        }
-      ]
-    },
-    "doi:10.1145/2629489": {
-      "name": "Wikidata: A Free Collaborative Knowledgebase",
-      "aspect": "work",
-      "iri": "https://doi.org/10.1145/2629489",
-      "file": "data/work/doi_10.1145_2629489.nq.gz",
-      "quads": 6518,
-      "bytes": 103073,
-      "generated": "2026-11-18T08:02:25.395Z",
-      "endpoint": "https://qlever.dev/api/wikidata",
-      "log": [
-        {
-          "source": "wikidata",
-          "what": "work neighbourhood",
-          "quads": 5581,
-          "ms": 2872
-        },
-        {
-          "source": "datacite",
-          "what": "work and relations",
-          "quads": 0,
-          "ms": 363
-        },
-        {
-          "source": "pubmed",
-          "what": "PubMed record, authors and MeSH (RDF Portal)",
-          "quads": 0,
-          "ms": 1277
-        },
-        {
-          "source": "openalex",
-          "what": "work, references, citing works",
-          "quads": 907,
-          "ms": 1375
-        },
-        {
-          "source": "crossref",
-          "what": "work and references",
-          "quads": 36,
-          "ms": 4912
-        }
-      ]
-    },
-    "wikidata:Q2013": {
-      "name": "Wikidata",
-      "aspect": "topic",
-      "iri": "http://www.wikidata.org/entity/Q2013",
-      "file": "data/topic/wikidata_Q2013.nq.gz",
-      "quads": 15735,
-      "bytes": 214955,
-      "generated": "2026-11-18T08:02:32.008Z",
-      "endpoint": "https://qlever.dev/api/wikidata",
-      "log": [
-        {
-          "source": "wikidata",
-          "what": "topic neighbourhood",
-          "quads": 20770,
-          "ms": 6269
-        }
-      ]
-    },
-    "issn:2052-4463": {
-      "name": "Scientific Data",
-      "aspect": "venue",
-      "iri": "http://www.wikidata.org/entity/Q27725928",
-      "file": "data/venue/issn_2052-4463.nq.gz",
-      "quads": 125883,
-      "bytes": 1302405,
-      "generated": "2026-11-18T08:02:49.354Z",
-      "endpoint": "https://qlever.dev/api/wikidata",
-      "log": [
-        {
-          "source": "wikidata",
-          "what": "venue neighbourhood",
-          "quads": 67766,
-          "ms": 10800
-        },
-        {
-          "source": "openalex",
-          "what": "source and recent works",
-          "quads": 44974,
-          "ms": 5033
-        },
-        {
-          "source": "crossref",
-          "what": "journal and recent works",
-          "quads": 30495,
-          "ms": 5591
-        }
-      ]
-    },
-    "obo:MONDO_0005148": {
-      "name": "type 2 diabetes mellitus",
+    "obo:Orphanet_558": {
+      "name": "Marfan syndrome",
       "aspect": "term",
-      "iri": "http://purl.obolibrary.org/obo/MONDO_0005148",
-      "file": "data/term/obo_MONDO_0005148.nq.gz",
-      "quads": 15266,
-      "bytes": 220421,
-      "generated": "2026-11-18T08:03:02.693Z",
+      "iri": "http://www.orpha.net/ORDO/Orphanet_558",
+      "file": "data/term/obo_Orphanet_558.nq.gz",
+      "quads": 13774,
+      "bytes": 203925,
+      "generated": "2026-11-18T08:33:28.790Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
-          "quads": 135,
-          "ms": 2057
-        },
-        {
-          "source": "reconcile",
-          "what": "Wikidata Q3025883 matched by DOID:9352, ICD10CM:E11, ICD10WHO:E11, ICD11:119724091, MESH:D003924, NCIT:C26747, OMIM:125853, UMLS:C0011860",
-          "quads": 9,
-          "ms": 0
+          "quads": 83,
+          "ms": 1682
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
-          "quads": 21012,
-          "ms": 7186
+          "quads": 19449,
+          "ms": 9892
         },
         {
           "source": "rdfportal",
-          "what": "TogoID links",
-          "quads": 15,
-          "ms": 1353
+          "what": "TogoID links and ClinVar variants",
+          "quads": 19,
+          "ms": 6512
+        },
+        {
+          "source": "ols",
+          "what": "codes checked in OLS",
+          "quads": 18,
+          "ms": 535
+        }
+      ]
+    },
+    "obo:Orphanet_586": {
+      "name": "Cystic fibrosis",
+      "aspect": "term",
+      "iri": "http://www.orpha.net/ORDO/Orphanet_586",
+      "file": "data/term/obo_Orphanet_586.nq.gz",
+      "quads": 13047,
+      "bytes": 187016,
+      "generated": "2026-11-18T08:33:45.680Z",
+      "endpoint": "https://qlever.dev/api/wikidata",
+      "log": [
+        {
+          "source": "obo",
+          "what": "term, hierarchy and cross-references (OLS)",
+          "quads": 146,
+          "ms": 1042
+        },
+        {
+          "source": "wikidata",
+          "what": "term neighbourhood",
+          "quads": 18824,
+          "ms": 7117
+        },
+        {
+          "source": "rdfportal",
+          "what": "TogoID links and ClinVar variants",
+          "quads": 16,
+          "ms": 4871
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
           "quads": 24,
-          "ms": 864
+          "ms": 3301
+        }
+      ]
+    },
+    "obo:Orphanet_98896": {
+      "name": "Duchenne muscular dystrophy",
+      "aspect": "term",
+      "iri": "http://www.orpha.net/ORDO/Orphanet_98896",
+      "file": "data/term/obo_Orphanet_98896.nq.gz",
+      "quads": 13596,
+      "bytes": 198619,
+      "generated": "2026-11-18T08:34:10.670Z",
+      "endpoint": "https://qlever.dev/api/wikidata",
+      "log": [
+        {
+          "source": "obo",
+          "what": "term, hierarchy and cross-references (OLS)",
+          "quads": 70,
+          "ms": 5325
+        },
+        {
+          "source": "wikidata",
+          "what": "term neighbourhood",
+          "quads": 19395,
+          "ms": 10885
+        },
+        {
+          "source": "rdfportal",
+          "what": "TogoID links and ClinVar variants",
+          "quads": 16,
+          "ms": 2504
+        },
+        {
+          "source": "ols",
+          "what": "codes checked in OLS",
+          "quads": 15,
+          "ms": 5814
+        }
+      ]
+    },
+    "obo:Orphanet_284993": {
+      "name": "Marfan syndrome and Marfan-related disorders",
+      "aspect": "term",
+      "iri": "http://www.orpha.net/ORDO/Orphanet_284993",
+      "file": "data/term/obo_Orphanet_284993.nq.gz",
+      "quads": 144,
+      "bytes": 2020,
+      "generated": "2026-11-18T08:36:19.104Z",
+      "endpoint": "https://qlever.dev/api/wikidata",
+      "log": [
+        {
+          "source": "obo",
+          "what": "term, hierarchy and cross-references (OLS)",
+          "quads": 59,
+          "ms": 12182
+        },
+        {
+          "source": "wikidata",
+          "what": "term neighbourhood",
+          "quads": 74,
+          "ms": 1120
+        },
+        {
+          "source": "rdfportal",
+          "what": "TogoID links and ClinVar variants",
+          "quads": 6,
+          "ms": 2601
+        },
+        {
+          "source": "ols",
+          "what": "codes checked in OLS",
+          "quads": 10,
+          "ms": 1787
+        }
+      ]
+    },
+    "obo:MONDO_0007947": {
+      "name": "Marfan syndrome",
+      "aspect": "term",
+      "iri": "http://purl.obolibrary.org/obo/MONDO_0007947",
+      "file": "data/term/obo_MONDO_0007947.nq.gz",
+      "quads": 13810,
+      "bytes": 204551,
+      "generated": "2026-11-18T08:36:30.343Z",
+      "endpoint": "https://qlever.dev/api/wikidata",
+      "log": [
+        {
+          "source": "obo",
+          "what": "term, hierarchy and cross-references (OLS)",
+          "quads": 124,
+          "ms": 1299
+        },
+        {
+          "source": "wikidata",
+          "what": "term neighbourhood",
+          "quads": 19451,
+          "ms": 4177
+        },
+        {
+          "source": "rdfportal",
+          "what": "TogoID links and ClinVar variants",
+          "quads": 31,
+          "ms": 3496
+        },
+        {
+          "source": "ols",
+          "what": "codes checked in OLS",
+          "quads": 24,
+          "ms": 1649
         },
         {
           "source": "rdfportal",
           "what": "NANDO codes checked",
-          "quads": 3,
-          "ms": 1147
+          "quads": 9,
+          "ms": 1719
         }
       ]
     }
   },
   "aliases": {
-    "orcid:0000-0002-9593-2294": "wikidata:Q18618629",
-    "wikidata:Q20895785": "orcid:0000-0001-9488-1870",
-    "wikidata:Q18507561": "doi:10.1145/2629489",
-    "wikidata:Q27725928": "issn:2052-4463",
-    "openalex:A5018023802": "wikidata:Q18618629",
-    "openalex:A5050528093": "orcid:0000-0001-9488-1870",
-    "openalex:W2080133951": "doi:10.1145/2629489",
-    "openalex:S2607323502": "issn:2052-4463",
-    "wikidata:Q3025883": "obo:MONDO_0005148",
-    "openalex:C2777180221": "obo:MONDO_0005148",
-    "openalex:C2910068830": "obo:MONDO_0005148"
+    "openalex:C2780561598": "obo:MONDO_0007947",
+    "wikidata:Q208562": "obo:MONDO_0007947",
+    "openalex:C2776938444": "obo:Orphanet_586",
+    "wikidata:Q178194": "obo:Orphanet_586",
+    "openalex:C2778943923": "obo:Orphanet_98896",
+    "wikidata:Q1648484": "obo:Orphanet_98896",
+    "wikidata:Q6759035": "obo:Orphanet_284993"
   },
-  "generated": "2026-11-18T08:03:02.695Z"
+  "generated": "2026-11-18T08:36:30.345Z"
 }

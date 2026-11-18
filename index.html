@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>koetai reconciliator</title>
-  <meta name="description" content="Entities reconciled across Wikidata, ORCID, Crossref, DataCite, OpenAlex and OBO ontologies as RDF, and queried in your browser with Comunica. No server.">
+  <title>rare disease reconciliator</title>
+  <meta name="description" content="Rare diseases reconciled from Orphanet with OMIM, MONDO, ICD, MeSH, UMLS, NANDO, Wikidata and the literature as RDF, queried in your browser with Comunica. Curate Wikidata and find missing Wikipedia articles. No server.">
   <link rel="stylesheet" href="src/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%232f6f5e'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='Georgia'%3Ef%3C/text%3E%3C/svg%3E">
 </head>
@@ -12,7 +12,7 @@
   <header class="top">
     <a class="brand" href="#/">koetai reconciliator</a>
     <form id="search" class="search" autocomplete="off" role="search">
-      <input id="q" type="search" placeholder="Name, term, ORCID, DOI, PMID, ISSN, QID or MONDO:0005148" aria-label="Search">
+      <input id="q" type="search" placeholder="Disease name, ORPHA:558, MONDO:0007947, QID, ORCID, DOI or PMID" aria-label="Search">
       <ul id="suggest" class="suggest" hidden></ul>
     </form>
     <details class="settings">
@@ -31,7 +31,7 @@
   </header>
   <main id="main"></main>
   <footer class="foot">
-    <p>A static site built from the koetai-reconciliator template. Each page's graph is merged from <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://orcid.org">ORCID</a>, <a href="https://www.crossref.org">Crossref</a>, <a href="https://datacite.org">DataCite</a>, <a href="https://openalex.org">OpenAlex</a> and OBO ontologies (via <a href="https://www.ebi.ac.uk/ols4/">OLS</a>), and queried in your browser with <a href="https://comunica.dev">Comunica</a>. Inspired by <a href="https://github.com/WDscholia/scholia">Scholia</a>.</p>
+    <p>A static site forked from the <a href="https://github.com/andrawaag/koetai-reconciliator">koetai-reconciliator</a> template. Each disease page is merged from <a href="https://www.orpha.net">Orphanet</a> (ORDO, via <a href="https://www.ebi.ac.uk/ols4/">OLS</a>), OBO ontologies, <a href="https://rdfportal.org">RDF Portal</a> (TogoID, NANDO, PubMed), <a href="https://www.wikidata.org">Wikidata</a> and <a href="https://openalex.org">OpenAlex</a>, and queried in your browser with <a href="https://comunica.dev">Comunica</a>. Inspired by <a href="https://github.com/WDscholia/scholia">Scholia</a>.</p>
     <p class="ai-ack"><b>AI acknowledgement.</b> Developed with help from an AI coding assistant (Claude Code, Anthropic). A human directed the design and is responsible for the code. See the <a href="README.md#ai-acknowledgement">README</a> for what the AI did and how it was checked.</p>
   </footer>
   <script type="module" src="src/app.js"></script>

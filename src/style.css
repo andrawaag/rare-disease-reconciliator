@@ -174,3 +174,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* OLS concept check in the mappings tables */
 td.check-obsolete, td.check-not-found { color: var(--crossref); font-weight: 600; }
 td.check-current { color: var(--muted); }
+
+/* Wikipedia coverage */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 12px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
+.lang-pick select { font: inherit; }

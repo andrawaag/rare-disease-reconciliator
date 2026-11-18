@@ -1,4 +1,4 @@
-# Builds and deploys this koetai-reconciliator instance to GitHub Pages.
+# Builds and deploys this rare-disease-reconciliator instance to GitHub Pages.
 # - On push: snapshot any seed in site.config.json that has no snapshot yet (and drop removed ones), then deploy.
 # - Weekly and on manual dispatch: re-harvest every seed, then deploy.
 # Optional repository secret OPENALEX_API_KEY raises OpenAlex's anonymous rate limit for snapshot runs.

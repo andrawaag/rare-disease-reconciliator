@@ -24,7 +24,9 @@ export const VOCABS = {
   ICD11: { label: "ICD-11", iri: (id) => `http://id.who.int/icd/entity/${id}`, wd: "P7807", aliases: ["icd11.foundation", "ICD11.FOUNDATION"] },
   UMLS: { label: "UMLS", iri: (id) => `http://linkedlifedata.com/resource/umls/id/${id}`, wd: "P2892", aliases: ["UMLS_CUI"] },
   OMIM: { label: "OMIM", iri: (id) => `https://omim.org/entry/${id}`, wd: "P492", aliases: ["MIM", "OMIMPS"] },
-  ORPHANET: { label: "Orphanet", iri: (id) => `http://www.orpha.net/ORDO/Orphanet_${id}`, wd: "P1550", aliases: ["ORPHA", "ORDO", "Orphanet"] },
+  ORPHANET: { label: "Orphanet", iri: (id) => `http://www.orpha.net/ORDO/Orphanet_${id}`, wd: "P1550", wdForms: (id) => [id], wdItem: "Q1515833", aliases: ["ORPHA", "ORDO", "Orphanet", "ORPHANET.ORDO"] },
+  MEDDRA: { label: "MedDRA", iri: (id) => `http://identifiers.org/meddra/${id}`, wd: "P3201" },
+  GARD: { label: "GARD", iri: (id) => `https://rarediseases.info.nih.gov/diseases/${id}/index`, wd: "P4317" },
   MEDGEN: { label: "MedGen", iri: (id) => `https://www.ncbi.nlm.nih.gov/medgen/${id}` },
   // Japanese rare-disease ontology (NanbyoData); not in OLS, checked through RDF Portal (src/adapters/rdfportal.js).
   NANDO: { label: "NANDO", iri: (id) => `http://nanbyodata.jp/ontology/NANDO_${id}` },
@@ -72,6 +74,8 @@ export function target(prefix, id) {
 export function parseTargetIri(iriString) {
   const rules = [
     [/^http:\/\/purl\.obolibrary\.org\/obo\/([A-Za-z]+)_(\w+)$/, (m) => [m[1], m[2]]],
+    [/^https?:\/\/identifiers\.org\/orphanet(?:\.ordo)?[/:](?:Orphanet_)?(\d+)$/, (m) => ["ORPHANET", m[1]]],
+    [/^https?:\/\/identifiers\.org\/meddra[/:](\d+)$/, (m) => ["MEDDRA", m[1]]],
     [/^http:\/\/nanbyodata\.jp\/ontology\/NANDO_(\d+)$/, (m) => ["NANDO", m[1]]],
     // MedGen concept IDs that look like CUIs are UMLS CUIs (TogoID writes them this way); numeric ones are MedGen UIDs.
     [/^https?:\/\/identifiers\.org\/medgen[/:](C\d+)$/, (m) => ["UMLS", m[1]]],
@@ -90,11 +94,12 @@ export function parseTargetIri(iriString) {
   return null;
 }
 
-/** Emit a mapping from `subject` to the code prefix:id. `relation` is "exact", "close" or "xref". Returns the target IRI. */
+/** Emit a mapping from `subject` to the code prefix:id. `relation` is "exact", "close", "broad", "narrow" or "xref". Returns the target IRI. */
 export function addMapping(sink, subject, prefix, id, relation) {
   const t = target(prefix, id);
   if (!t || t.iri === subject) return null;
-  sink.add(subject, relation === "exact" ? SKOS + "exactMatch" : relation === "close" ? SKOS + "closeMatch" : OBOINOWL + "hasDbXref", t.iri);
+  const pred = { exact: "exactMatch", close: "closeMatch", broad: "broadMatch", narrow: "narrowMatch" }[relation];
+  sink.add(subject, pred ? SKOS + pred : OBOINOWL + "hasDbXref", t.iri);
   sink.lit(t.iri, NS.kr + "vocabulary", t.vocabulary);
   sink.lit(t.iri, NS.kr + "code", t.code);
   return t.iri;

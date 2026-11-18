@@ -7,7 +7,7 @@ import { parseTargetIri, SKOS, OBOINOWL } from "./vocab.js";
 import { lookupQid, lookupOboQid, matchQidByCodes, detectAspect, harvestWikidata } from "./adapters/wikidata.js";
 import { harvestObo } from "./adapters/obo.js";
 import { checkConceptsOls } from "./adapters/ols.js";
-import { harvestTogoid, checkNando } from "./adapters/rdfportal.js";
+import { harvestTogoid, checkNando, togoidIri } from "./adapters/rdfportal.js";
 import { harvestPubmedWork, harvestPubmedForDois, doiForPmid } from "./adapters/pubmed.js";
 import { findByStatementsLive } from "./wikidata-live.js";
 import { wikidataFormsForObo } from "./vocab.js";
@@ -104,12 +104,12 @@ export async function harvest(ctx, key, aspectHint, onProgress = () => {}) {
   if (ids.openalex && ids.openalex[0] !== { author: "A", work: "W", venue: "S", topic: "T" }[aspect] && !(aspect === "topic" && ids.openalex[0] === "C")) delete ids.openalex;
 
   // 2a. RDF Portal: TogoID's ID links for the term, a third view on its mappings next to the ontology's and Wikidata's.
-  if (aspect === "term" && ids.obo && on("rdfportal")) await step("rdfportal", "TogoID links", () => harvestTogoid(ctx, iri.obo(ids.obo), iri.obo(ids.obo)));
+  if (aspect === "term" && ids.obo && on("rdfportal")) await step("rdfportal", "TogoID links and ClinVar variants", () => harvestTogoid(ctx, iri.obo(ids.obo), togoidIri(ids.obo)));
 
   // 2b. Check every code the page maps to: in EBI's OLS, and NANDO codes (not in OLS) in RDF Portal.
   if (aspect === "term" || aspect === "topic") {
     const own = ids.obo ? iri.obo(ids.obo) : null;
-    const MAP = new Set([SKOS + "exactMatch", SKOS + "closeMatch", OBOINOWL + "hasDbXref"]);
+    const MAP = new Set(["exactMatch", "closeMatch", "broadMatch", "narrowMatch"].map((p) => SKOS + p).concat(OBOINOWL + "hasDbXref"));
     const codes = [...new Set(quads.filter((q) => MAP.has(q.predicate.value) && q.object.value !== own).map((q) => q.object.value))];
     const nando = codes.filter((c) => c.startsWith("http://nanbyodata.jp/ontology/NANDO_"));
     await Promise.all([

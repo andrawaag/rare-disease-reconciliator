@@ -31,7 +31,7 @@ export const ASPECTS = {
     ],
   },
   term: {
-    title: "Ontology term",
+    title: "Disease or ontology term",
     panels: [
       { id: "details", title: "Definition", render: "kv" },
       { id: "agreement", title: "Agreement between sources", render: "table" },

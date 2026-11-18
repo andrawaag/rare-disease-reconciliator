@@ -1,6 +1,6 @@
 # Codes in other terminologies, from every source. A row with several source badges means the sources agree.
 # "exact": stated as the same concept (an ontology's exact match, a Wikidata external ID, TogoID "is equivalent to");
-# "close": TogoID "is nearly equivalent to"; "xref": a database cross-reference.
+# "close": TogoID "is nearly equivalent to"; "broad" / "narrow": Orphanet's NTBT / BTNT (the code is broader / narrower); "xref": a database cross-reference.
 # "checkedName" / "status" / "checkedIn": the code as EBI's OLS (or, for NANDO, RDF Portal) has it: current, obsolete
 # or not found. Empty where neither covers the terminology (ICD, OMIM, …).
 SELECT (SAMPLE(?voc) AS ?vocabulary) ?code (SAMPLE(?c) AS ?codeLabel)
@@ -9,6 +9,10 @@ SELECT (SAMPLE(?voc) AS ?vocabulary) ?code (SAMPLE(?c) AS ?codeLabel)
   { GRAPH ?g { <{{iri}}> skos:exactMatch ?code } BIND("exact" AS ?rel) }
   UNION
   { GRAPH ?g { <{{iri}}> skos:closeMatch ?code } BIND("close" AS ?rel) }
+  UNION
+  { GRAPH ?g { <{{iri}}> skos:broadMatch ?code } BIND("broad" AS ?rel) }
+  UNION
+  { GRAPH ?g { <{{iri}}> skos:narrowMatch ?code } BIND("narrow" AS ?rel) }
   UNION
   { GRAPH ?g { <{{iri}}> oboInOwl:hasDbXref ?code } BIND("xref" AS ?rel) }
   OPTIONAL { ?code kr:vocabulary ?voc }

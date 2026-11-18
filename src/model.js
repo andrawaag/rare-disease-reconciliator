@@ -21,7 +21,8 @@ export const iri = {
   doi: (d) => `https://doi.org/${d.trim().toLowerCase()}`,
   issn: (i) => `urn:issn:${i.trim().toUpperCase()}`,
   openalex: (id) => `https://openalex.org/${id.toUpperCase()}`,
-  obo: (id) => `http://purl.obolibrary.org/obo/${id}`,
+  // Orphanet terms keep their own IRIs (ORDO); every other ontology term is an OBO PURL.
+  obo: (id) => (/^Orphanet_\d+$/.test(id) ? `http://www.orpha.net/ORDO/${id}` : `http://purl.obolibrary.org/obo/${id}`),
   pmid: (id) => `http://rdf.ncbi.nlm.nih.gov/pubmed/${id}`,
 };
 // OBO prefixes keep their case convention: upper case, except a few mixed-case ones.
@@ -36,6 +37,8 @@ const PATTERNS = [
   ["openalex", /^(?:openalex:|https?:\/\/(?:api\.)?openalex\.org\/(?:\w+\/)?)?([WASTC]\d{3,})$/i, (m) => m[1].toUpperCase()],
   // PubMed: "pmid:26978244", a PubMed URL or the PubMed RDF IRI. A bare number is not taken as a PMID.
   ["pmid", /^(?:pmid:\s*|https?:\/\/(?:pubmed\.ncbi\.nlm\.nih\.gov|rdf\.ncbi\.nlm\.nih\.gov\/pubmed)\/)(\d{1,9})\/?$/i, (m) => m[1]],
+  // Orphanet disease: "ORPHA:558", "Orphanet:558", "Orphanet_558", the ORDO IRI or an orpha.net disease page.
+  ["obo", /^(?:obo:)?(?:orpha(?:net)?[:_]\s*|https?:\/\/www\.orpha\.net\/ORDO\/Orphanet_|https?:\/\/www\.orpha\.net\/(?:\w\w\/)?disease\/detail\/)(\d+)\/?$/i, (m) => `Orphanet_${m[1]}`],
   // OBO term: "obo:MONDO_0005148", "MONDO:0005148" or the PURL.
   ["obo", /^(?:obo:|https?:\/\/purl\.obolibrary\.org\/obo\/)?([A-Za-z][A-Za-z]{1,15})[_:](\d{4,}|[A-Z]?\d{3,})$/, (m) => `${oboPrefix(m[1])}_${m[2]}`],
 ];
@@ -52,6 +55,10 @@ export function parseKey(input) {
   return null;
 }
 
+/** The term id ("MONDO_0005148", "Orphanet_558") of an ontology term IRI, or null. */
+export function termIdOf(i) {
+  return i.match(/^http:\/\/purl\.obolibrary\.org\/obo\/([A-Za-z]+_\w+)$/)?.[1] ?? i.match(/^http:\/\/www\.orpha\.net\/ORDO\/(Orphanet_\d+)$/)?.[1] ?? null;
+}
 export const keyString = ({ scheme, value }) => `${scheme}:${value}`;
 export const keyToIri = ({ scheme, value }) => iri[scheme](value);
 export const iriToKey = (i) => (/^(https?:|urn:issn:)/.test(i) ? parseKey(i) : null);

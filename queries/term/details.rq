@@ -1,10 +1,19 @@
-# The term as its ontology defines it (OLS), and how it was linked to Wikidata
+# The term as its ontology defines it (OLS), how it was linked to Wikidata, and Orphanet's facts about a rare disease
 SELECT (SAMPLE(?id) AS ?oboId) (SAMPLE(?on) AS ?ontology) (SAMPLE(?ver) AS ?release) (SAMPLE(?def) AS ?definition)
+       (GROUP_CONCAT(DISTINCT ?ty; separator=", ") AS ?orphanetType) (GROUP_CONCAT(DISTINCT ?inh; separator=", ") AS ?inheritance)
+       (GROUP_CONCAT(DISTINCT ?ons; separator=", ") AS ?ageOfOnset) (GROUP_CONCAT(DISTINCT ?prev; separator=" | ") AS ?prevalence)
+       (SAMPLE(?cv) AS ?clinvarVariants) (SAMPLE(?page) AS ?orphanetPage)
        (SAMPLE(?obs) AS ?obsolete) (SAMPLE(?rep) AS ?replacedBy) (SAMPLE(?cc) AS ?children)
        (SAMPLE(?wd) AS ?wikidata) (GROUP_CONCAT(DISTINCT ?mb; separator=", ") AS ?wikidataMatchedBy) WHERE {
   OPTIONAL { <{{iri}}> schema:termCode ?id }
   OPTIONAL { <{{iri}}> schema:inDefinedTermSet ?set . ?set schema:name ?on OPTIONAL { ?set schema:version ?ver } }
   OPTIONAL { GRAPH <urn:koetai-reconciliator:source:obo> { <{{iri}}> schema:description ?def } }
+  OPTIONAL { <{{iri}}> kr:orphanetType ?ty }
+  OPTIONAL { <{{iri}}> kr:inheritance ?inh }
+  OPTIONAL { <{{iri}}> kr:ageOfOnset ?ons }
+  OPTIONAL { <{{iri}}> kr:prevalence ?prev }
+  OPTIONAL { <{{iri}}> kr:clinvarVariantCount ?cv }
+  OPTIONAL { GRAPH <urn:koetai-reconciliator:source:obo> { <{{iri}}> schema:url ?page } }
   OPTIONAL { <{{iri}}> owl:deprecated ?obs }
   OPTIONAL { <{{iri}}> <http://purl.obolibrary.org/obo/IAO_0100001> ?rep }
   OPTIONAL { <{{iri}}> kr:childCount ?cc }

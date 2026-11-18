@@ -1,18 +1,27 @@
 {
-  "title": "koetai reconciliator",
-  "tagline": "Scholarly profiles without a server",
-  "intro": "This site gathers open scholarly metadata about a person, work, topic or venue from Wikidata, ORCID, Crossref, DataCite and OpenAlex. It merges it into one RDF graph and draws Scholia-style panels from it in your browser with Comunica. Pages listed below are pre-built snapshots; any other page is fetched live.",
+  "title": "rare disease reconciliator",
+  "tagline": "Rare diseases, reconciled from Orphanet outwards",
+  "intro": "This site reconciles data and knowledge about rare diseases, starting from Orphanet (ORDO). For each disorder it merges Orphanet with the terminologies it maps to (OMIM, MONDO, ICD-10, ICD-11, MeSH, UMLS, MedDRA, GARD), TogoID and NANDO from RDF Portal, Wikidata, and the literature (PubMed, OpenAlex), into one RDF graph queried in your browser with Comunica. It shows where Wikidata disagrees with Orphanet or lacks a disorder, proposes QuickStatements fixes you run under your own account, and shows which Wikipedias are missing an article. Paste an Orphanet code such as ORPHA:558, or search by name.",
   "accent": "#2f6f5e",
-  "sources": ["wikidata", "orcid", "crossref", "datacite", "openalex", "obo", "ols", "rdfportal", "pubmed"],
+  "sources": [
+    "wikidata",
+    "orcid",
+    "crossref",
+    "datacite",
+    "openalex",
+    "obo",
+    "ols",
+    "rdfportal",
+    "pubmed"
+  ],
   "wikidataEndpoint": "https://qlever.dev/api/wikidata",
   "liveHarvest": true,
   "seeds": [
-    "wikidata:Q18618629",
-    "orcid:0000-0001-9488-1870",
-    "doi:10.1145/2629489",
-    "wikidata:Q2013",
-    "issn:2052-4463",
-    "obo:MONDO_0005148"
+    "obo:Orphanet_558",
+    "obo:Orphanet_586",
+    "obo:Orphanet_98896",
+    "obo:Orphanet_284993",
+    "obo:MONDO_0007947"
   ],
   "panels": {
     "author": {
@@ -25,16 +34,42 @@
           "wide": true,
           "render": "vega-lite",
           "spec": {
-            "mark": { "type": "bar", "tooltip": true },
+            "mark": {
+              "type": "bar",
+              "tooltip": true
+            },
             "encoding": {
-              "x": { "field": "year", "type": "ordinal", "title": null },
-              "xOffset": { "field": "source" },
-              "y": { "field": "works", "type": "quantitative", "title": "works" },
+              "x": {
+                "field": "year",
+                "type": "ordinal",
+                "title": null
+              },
+              "xOffset": {
+                "field": "source"
+              },
+              "y": {
+                "field": "works",
+                "type": "quantitative",
+                "title": "works"
+              },
               "color": {
-                "field": "source", "type": "nominal",
+                "field": "source",
+                "type": "nominal",
                 "scale": {
-                  "domain": ["wikidata", "orcid", "crossref", "datacite", "openalex"],
-                  "range": ["#3a66a8", "#6f8f1f", "#b5562c", "#1f7a8c", "#a8326e"]
+                  "domain": [
+                    "wikidata",
+                    "orcid",
+                    "crossref",
+                    "datacite",
+                    "openalex"
+                  ],
+                  "range": [
+                    "#3a66a8",
+                    "#6f8f1f",
+                    "#b5562c",
+                    "#1f7a8c",
+                    "#a8326e"
+                  ]
                 }
               }
             }
@@ -44,8 +79,18 @@
     },
     "work": {
       "add": [
-        { "id": "citations-per-year", "title": "Citations per year", "query": "queries/custom/work/citations-per-year.rq", "render": "bars", "after": "details" }
+        {
+          "id": "citations-per-year",
+          "title": "Citations per year",
+          "query": "queries/custom/work/citations-per-year.rq",
+          "render": "bars",
+          "after": "details"
+        }
       ]
     }
-  }
+  },
+  "searchOntologies": [
+    "ordo",
+    "mondo"
+  ]
 }

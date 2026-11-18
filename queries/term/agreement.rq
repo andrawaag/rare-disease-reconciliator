@@ -2,7 +2,7 @@
 SELECT ?vocabulary (SUM(?b) AS ?both) (SUM(?o) AS ?oboOnly) (SUM(?w) AS ?wikidataOnly) WHERE {
   {
     SELECT ?target (MAX(IF(?src = "obo", 1, 0)) AS ?inObo) (MAX(IF(?src = "wikidata", 1, 0)) AS ?inWikidata) WHERE {
-      { GRAPH ?g { <{{iri}}> skos:exactMatch ?target } } UNION { GRAPH ?g { <{{iri}}> oboInOwl:hasDbXref ?target } }
+      { GRAPH ?g { <{{iri}}> skos:exactMatch|skos:closeMatch|skos:broadMatch|skos:narrowMatch|oboInOwl:hasDbXref ?target } }
       BIND(STRAFTER(STR(?g), "urn:koetai-reconciliator:source:") AS ?src)
     } GROUP BY ?target
   }

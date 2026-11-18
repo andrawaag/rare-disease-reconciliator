@@ -31,6 +31,9 @@ export async function rdfPortalSelect(ctx, query, endpoint = RDFPORTAL_SPARQL) {
   }
 }
 
+/** The IRI TogoID uses for a term: Orphanet codes are identifiers.org IRIs there, OBO terms their PURLs. */
+export const togoidIri = (termId) => (/^Orphanet_\d+$/.test(termId) ? `http://identifiers.org/orphanet.ordo/${termId}` : `http://purl.obolibrary.org/obo/${termId}`);
+
 /** TogoID equivalence links of one term, in both directions, as mappings from `subject`. */
 export async function harvestTogoid(ctx, subject, termIri) {
   if (!safeIri(termIri)) return [];
@@ -49,8 +52,12 @@ export async function harvestTogoid(ctx, subject, termIri) {
   }
   for (const [x, rel] of best) {
     const t = parseTargetIri(x);
-    if (t) addMapping(out, subject, t.prefix, t.id, rel);
+    if (t) addMapping(out, subject, t.prefix, t.id, rel); // skips a link back to the page's own term
   }
+  // ClinVar variants that TogoID links to the disease ("has related phenotype"): how much variant evidence exists.
+  const cv = await rdfPortalSelect(ctx, `SELECT (COUNT(DISTINCT ?v) AS ?n) WHERE { GRAPH ?g { ?v <${TIO}TIO_000010> <${termIri}> } FILTER(STRSTARTS(STR(?g), "${TOGOID_GRAPHS}clinvar-")) }`).catch(() => []);
+  const n = Number(cv[0]?.n?.value ?? 0);
+  if (n) out.add(subject, NS.kr + "clinvarVariantCount", ctx.DF.literal(String(n), ctx.DF.namedNode(NS.xsd + "integer")));
   return out.quads;
 }
 

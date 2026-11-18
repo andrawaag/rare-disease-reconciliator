@@ -7,6 +7,7 @@ function rank(i) {
   if (i.startsWith("https://orcid.org/")) return 0;
   if (i.startsWith("https://doi.org/")) return 1;
   if (i.startsWith("http://rdf.ncbi.nlm.nih.gov/pubmed/")) return 1.2;
+  if (i.startsWith("http://www.orpha.net/ORDO/")) return 1.4; // the reference terminology here
   if (i.startsWith("http://purl.obolibrary.org/obo/")) return 1.5;
   if (i.startsWith(NS.wd)) return 2;
   if (i.startsWith("urn:issn:")) return 3;

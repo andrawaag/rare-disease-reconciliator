@@ -1,10 +1,38 @@
-# koetai-reconciliator
+# rare-disease-reconciliator
 
-**koetai reconciliator** reconciles entities across linked-data sources into one RDF graph per entity, and publishes the result as a static site with no server. It's a GitHub template, so anyone can run their own instance.
+**rare disease reconciliator** reconciles data and knowledge about rare diseases into one RDF graph per disease, and publishes it as a static site with no server. It is a fork of [koetai-reconciliator](https://github.com/andrawaag/koetai-reconciliator) with [Orphanet](https://www.orpha.net) at its core.
 
-It covers scholarly entities and ontology terms. Each page (a researcher, a work, a topic or a venue) is one RDF graph, merged in your visitors' browsers from **Wikidata, ORCID, Crossref, DataCite, OpenAlex, OBO ontologies (via OLS), PubMed and TogoID/NANDO (both via [RDF Portal](https://rdfportal.org))**, with every terminology code checked in OLS, and queried with [Comunica](https://comunica.dev). GitHub Pages hosts the site, and a GitHub Action keeps pre-built snapshots of the pages you feature. You add your own visualizations as a SPARQL query plus a few lines of config.
+Site: https://andrawaag.github.io/rare-disease-reconciliator/
 
-Inspired by [Scholia](https://github.com/WDscholia/scholia). The aim is to go native on RDF and go beyond Wikidata: the same adapter → reconcile → query pipeline is meant to extend to other domains and terminologies, OBO Foundry ontologies are the first: an ontology term's page reconciles its cross-references to SNOMED CT, MeSH, ICD-9/10/11, UMLS and others against Wikidata. (Developed under the working names frugalScholia and koetai-bibliography.)
+## What it does
+
+- **Orphanet first.** Any Orphanet disorder or group has a page: paste `ORPHA:558`, `Orphanet_558` or an orpha.net disease URL, or search by name (Orphanet hits come first). The page reads the disorder from Orphanet's Rare Disease Ontology (ORDO) through [OLS](https://www.ebi.ac.uk/ols4/): name, definition, synonyms, disorder type, Orphanet classification (parents and subtypes), mode of inheritance, age of onset, prevalence, and its link to orpha.net.
+- **The resources Orphanet maps to.** Orphanet's cross-references (OMIM, MONDO, ICD-10, ICD-11, MeSH, UMLS, MedDRA, GARD, …) become mappings with Orphanet's own mapping type: `exact` (E), `broad` (NTBT, the target code is broader) or `narrow` (BTNT). [TogoID](https://togoid.dbcls.jp) on [RDF Portal](https://rdfportal.org) adds its own links (MONDO, MeSH, OMIM, MedGen, MedDRA) and the number of ClinVar variants linked to the disorder. Wikidata adds the codes its item holds. Every code is checked in OLS (or in NANDO for Japanese rare-disease codes): current, obsolete or not found.
+- **Curate Wikidata.** The "Improve Wikidata" panel compares the Wikidata item with Orphanet and proposes QuickStatements you run under your own account: the Orphanet ID (P1550) if missing, codes Orphanet maps to (with mapping relation type P4390 = exact, broad or narrow match; broad and narrow unticked), Orphanet's mode of inheritance (P1199), and removal of codes that OLS reports obsolete. Statements cite Orphanet (Q1515833) and the orpha.net page. The item is read live first, so nothing it already holds is proposed.
+- **Subtypes missing on Wikidata.** For a disorder or group, the "Subtypes on Wikidata and Wikipedia" panel lists Orphanet's subtypes, finds their Wikidata items by Orphanet ID, and offers to create items for those without one (label, "rare disease", instance of type of disease Q112193867, P1550, subclass of the parent's item).
+- **Missing Wikipedia articles.** The "Wikipedia articles" panel shows which Wikipedias have an article on the disease and which of your languages lack one, with a link to translate it from the best existing article (Content Translation). The subtypes panel shows, per subtype, how many Wikipedias cover it and whether the chosen language has an article. Languages are set in `wikipediaLanguages` in `site.config.json`.
+- **Literature.** Works about the disease on Wikidata, and (on work pages) PubMed records via RDF Portal.
+
+The scholarly pages of the template (people, works, venues) still work: researchers in rare-disease research can be reconciled too.
+
+Example: [Marfan syndrome and Marfan-related disorders (ORPHA:284993)](https://andrawaag.github.io/rare-disease-reconciliator/#/term/obo:Orphanet_284993). 9 of its 10 subtypes are on Wikidata and 6 have an English article. ORPHA:622925 has no Wikidata item yet. For Marfan syndrome itself (ORPHA:558, Q208562), the panel proposes ICD-10 Q87.4, MedDRA 10026829, OMIM 610168 as a broad match, and autosomal dominant inheritance.
+
+## Settings specific to this fork
+
+| Key | Meaning |
+|---|---|
+| `searchOntologies` | OLS ontologies the search box covers (`["ordo", "mondo"]` here; `null` for all) |
+| `wikipediaCoverage` | `false` hides the Wikipedia and subtypes panels |
+| `wikipediaLanguages` | languages checked for missing articles, first one preselected |
+
+## Known limits of the rare-disease additions
+
+- **Genes:** OLS's copy of ORDO has no disease-gene associations, so genes are not shown yet. Orphadata's gene files or Wikidata (P2293) could add them.
+- **ICD-11:** Orphanet gives ICD-11 MMS codes (e.g. `LD28.01`); Wikidata's ICD-11 property (P7807) holds foundation IDs. They don't meet, and MMS codes are not proposed.
+- **Mode of inheritance:** only the six Orphanet modes with a clear Wikidata item are proposed (autosomal dominant and recessive, X-linked dominant and recessive, mitochondrial, Y-linked).
+- **New items:** check for an existing item under another name before creating one; the panel only matches by Orphanet ID.
+
+The documentation below is the template's, and applies here too.
 
 ---
 

@@ -14,6 +14,9 @@ export const DEFAULT_CONFIG = {
   wikidataCreate: true,
   wikidataFixes: true,
   wikidataWorks: true,
+  searchOntologies: null, // OLS ontologies the search box covers (null: all)
+  wikipediaCoverage: true, // Wikipedia articles and subtype panels on disease pages
+  wikipediaLanguages: ["en", "de", "fr", "es", "it", "nl", "pt", "pl", "ru", "ja", "zh", "ar"],
   seeds: [],
   panels: {},
 };

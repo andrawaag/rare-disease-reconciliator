@@ -8,6 +8,7 @@ import { searchObo } from "./adapters/obo.js";
 import { findByStatementsLive, claimValuesLive } from "./wikidata-live.js";
 import { gatherFixes, buildFixCommands, fixKey } from "./wikidata-fix.js";
 import { gatherMissingWorks, checkOnWikidata, buildWorkCommands, workStatus, P31_LABEL } from "./wikidata-works.js";
+import { sitelinksLive, articleUrl, translateUrl, sourceLanguage, languageName, itemsForOrphaCodes, createDiseaseItems, DEFAULT_LANGUAGES } from "./wikipedia.js";
 import { gatherCandidate, findExisting, searchByName, buildCommands, quickStatementsUrl, propertyLabel, propertyUrl } from "./wikidata-create.js";
 
 const engine = new QueryEngine();
@@ -94,7 +95,7 @@ function externalUrl(key) {
     wikidata: `https://www.wikidata.org/wiki/${key.value}`,
     issn: `https://portal.issn.org/resource/ISSN/${key.value}`,
     openalex: `https://openalex.org/${key.value}`,
-    obo: `http://purl.obolibrary.org/obo/${key.value}`,
+    obo: /^Orphanet_/.test(key.value) ? `https://www.orpha.net/en/disease/detail/${key.value.slice(9)}` : `http://purl.obolibrary.org/obo/${key.value}`,
     pmid: `https://pubmed.ncbi.nlm.nih.gov/${key.value}/`,
   }[key.scheme];
 }
@@ -131,9 +132,11 @@ function renderTable(rows, vars) {
 function renderKv(rows, vars) {
   const b = rows[0];
   if (!b) return h("p", { class: "empty" }, "No details.");
-  return h("dl", { class: "kv" }, vars.filter((v) => !v.endsWith("Label") && b.get(v)).map((v) => {
+  return h("dl", { class: "kv" }, vars.filter((v) => !v.endsWith("Label") && b.get(v) && b.get(v).value !== "").map((v) => {
     const t = b.get(v);
-    return [h("dt", {}, v), h("dd", {}, t.termType === "NamedNode" ? entityLink(t.value, b.get(`${v}Label`)?.value, v) : t.value)];
+    const value = t.termType === "NamedNode" ? entityLink(t.value, b.get(`${v}Label`)?.value, v)
+      : /^https?:\/\/\S+$/.test(t.value) ? h("a", { href: t.value, target: "_blank", rel: "noopener" }, t.value) : t.value;
+    return [h("dt", {}, v), h("dd", {}, value)];
   }));
 }
 
@@ -426,22 +429,23 @@ async function termFixPanel(graph) {
   if (!fix.qid) return null;
   // The proposals come from the SPARQL copy, which lags: check the item live, so statements added minutes ago are
   // not proposed again and removals that were already done are dropped.
-  const props = [fix.own, ...fix.additions, ...fix.removals].filter(Boolean).map((x) => x.property);
+  const props = [fix.own, ...fix.additions, ...fix.facts, ...fix.removals].filter(Boolean).map((x) => x.property);
   if (props.length) {
     const held = await claimValuesLive(fetch, fix.qid, props).catch(() => null);
     if (held) {
       const has = (x) => held.get(x.property)?.has(String(x.value).toUpperCase());
       if (fix.own && has(fix.own)) fix.own = null;
       fix.additions = fix.additions.filter((x) => !has(x));
+      fix.facts = fix.facts.filter((x) => !has(x));
       fix.removals = fix.removals.filter(has);
     }
   }
-  const proposals = [fix.own, ...fix.additions, ...fix.removals].filter(Boolean);
+  const proposals = [fix.own, ...fix.additions, ...fix.facts, ...fix.removals].filter(Boolean);
   if (!proposals.length && !fix.review.length) return null;
 
   const wdLink = (qid) => h("a", { href: `https://www.wikidata.org/wiki/${qid}`, target: "_blank", rel: "noopener" }, qid);
   const codeLink = (x) => h("a", { href: x.url, target: "_blank", rel: "noopener" }, x.code);
-  const chosen = new Set([fix.own, ...fix.additions].filter(Boolean).map(fixKey)); // removals stay opt-in
+  const chosen = new Set([fix.own, ...fix.additions.filter((a) => !a.optional), ...fix.facts].filter(Boolean).map(fixKey)); // removals and broad/narrow mappings stay opt-in
   const textarea = h("textarea", { class: "qs", rows: 6, spellcheck: "false", "aria-label": "QuickStatements commands" });
   const regenerate = () => { textarea.value = buildFixCommands(fix, chosen); };
   const option = (x, text) => h("li", {}, h("label", {},
@@ -455,7 +459,9 @@ async function termFixPanel(graph) {
       h("h3", {}, "Proposed edits"),
       h("ul", { class: "fixes" },
         fix.own && option(fix.own, [h("b", {}, "Add "), `${fix.own.vocabulary} ID `, codeLink(fix.own), ` (${fix.own.property}).`]),
-        fix.additions.map((a) => option(a, [h("b", {}, "Add "), `${a.vocabulary} `, codeLink(a), ` (${a.property}): ${fix.label} states it as an exact match.`])),
+        fix.additions.map((a) => option(a, [h("b", {}, "Add "), `${a.vocabulary} `, codeLink(a), ` (${a.property}): `,
+          a.mapping === "broad" ? `${fix.label} maps to it as a broader code; added with mapping relation “broad match”.` : a.mapping === "narrow" ? `${fix.label} maps to it as a narrower code; added with mapping relation “narrow match”.` : `${fix.label} states it as an exact match.`])),
+        fix.facts.map((f) => option(f, [h("b", {}, "Add "), `${f.vocabulary} `, h("a", { href: `https://www.wikidata.org/wiki/${f.value}`, target: "_blank", rel: "noopener" }, f.code), ` (${f.property} = ${f.value}), as stated by ${fix.label}.`])),
         fix.removals.map((r) => option(r, [h("b", {}, "Remove "), `${r.vocabulary} `, codeLink(r), ` (${r.property}): obsolete${r.status.from ? ` according to ${r.status.from}` : ` in ${fix.label}`}${r.status.label ? ` (“${r.status.label}”)` : ""}`, r.status.replacedBy ? [", replaced by ", h("a", { href: r.status.replacedBy, target: "_blank", rel: "noopener" }, r.status.replacedBy.split("/").pop())] : "", ". Unticked by default; removing a statement can't be undone from here."]))),
       h("h3", {}, "QuickStatements"),
       textarea,
@@ -471,6 +477,99 @@ async function termFixPanel(graph) {
   regenerate();
   return h("section", { class: "panel wide wd-create", id: "panel-improve-wikidata" },
     h("header", {}, h("h2", {}, "Improve Wikidata"), h("span", { class: "timing" }, proposals.length ? `${proposals.length} possible edits` : "In agreement")), body);
+}
+
+// ---------- Wikipedia coverage and subtypes (rare diseases) ----------
+const WD_ENTITY = "http://www.wikidata.org/entity/";
+const RDFS_SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+const SCHEMA_NAME = "http://schema.org/name";
+const pageQid = (graph) => graph.iri.startsWith(WD_ENTITY) ? graph.iri.slice(WD_ENTITY.length)
+  : graph.quads.find((q) => q.subject.value === graph.iri && q.predicate.value === "http://schema.org/sameAs" && /^http:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(q.object.value))?.object.value.slice(WD_ENTITY.length) ?? null;
+const languages = () => config.wikipediaLanguages ?? DEFAULT_LANGUAGES;
+let wpLang = store.get("wpLang", null);
+const chosenLanguage = () => wpLang ?? languages()[0] ?? "en";
+function languagePicker(onchange) {
+  const sel = h("select", { "aria-label": "Wikipedia language", onchange: (e) => { wpLang = e.target.value; store.set("wpLang", wpLang); onchange(); } },
+    languages().map((l) => h("option", { value: l, selected: l === chosenLanguage() }, `${languageName(l)} (${l})`)));
+  return h("label", { class: "lang-pick" }, "Wikipedia: ", sel);
+}
+
+async function wikipediaPanel(graph) {
+  const qid = pageQid(graph);
+  if (!qid) return null;
+  const links = (await sitelinksLive(fetch, [qid], chosenLanguage())).get(qid)?.links ?? new Map();
+  const body = h("div", { class: "panel-body" });
+  const status = h("span", { class: "timing" });
+  const render = () => {
+    const missing = languages().filter((l) => !links.has(l));
+    status.textContent = `${links.size} language${links.size === 1 ? "" : "s"}`;
+    body.replaceChildren(...h("div", {},
+      links.size ? h("p", { class: "chips" }, [...links].sort(([a], [b]) => a.localeCompare(b)).map(([l, t]) => h("a", { class: "chip", href: articleUrl(l, t), target: "_blank", rel: "noopener", title: t }, l)))
+        : h("p", { class: "warn" }, "No Wikipedia has an article on this disease yet."),
+      missing.length ? [h("h3", {}, `Missing in ${missing.length} of your ${languages().length} languages`),
+        h("ul", { class: "matches" }, missing.map((l) => {
+          const cx = translateUrl(links, l);
+          return h("li", {}, `${languageName(l)} (${l})`, cx ? [" · ", h("a", { href: cx, target: "_blank", rel: "noopener" }, `translate from ${languageName(sourceLanguage(links))}`)] : " · no article to translate from yet");
+        }))] : h("p", {}, "There is an article in each of your languages."),
+      h("p", { class: "muted small" }, "From the Wikidata item's sitelinks, read live. Languages are set in site.config.json (wikipediaLanguages). Translation opens Wikipedia's Content Translation tool under your own account.")).childNodes);
+  };
+  render();
+  return h("section", { class: "panel", id: "panel-wikipedia" }, h("header", {}, h("h2", {}, "Wikipedia articles"), status), body);
+}
+
+async function subtypesPanel(graph) {
+  const kids = new Map();
+  for (const q of graph.quads) {
+    if (q.predicate.value === RDFS_SUBCLASS && q.object.value === graph.iri) {
+      const code = q.subject.value.match(/^http:\/\/www\.orpha\.net\/ORDO\/Orphanet_(\d+)$/)?.[1];
+      if (code) kids.set(code, { code, iri: q.subject.value, label: null });
+    }
+  }
+  for (const q of graph.quads) if (q.predicate.value === SCHEMA_NAME) { const c = q.subject.value.match(/Orphanet_(\d+)$/)?.[1]; if (c && kids.has(c) && !kids.get(c).label) kids.get(c).label = q.object.value; }
+  if (!kids.size) return null;
+  const parentQid = pageQid(graph);
+  const status = h("span", { class: "timing" }, "Checking Wikidata…");
+  const body = h("div", { class: "panel-body" }, h("p", { class: "loading" }, `Looking up ${kids.size} subtypes on Wikidata and Wikipedia…`));
+  const el = h("section", { class: "panel wide wd-create", id: "panel-subtypes" }, h("header", {}, h("h2", {}, "Subtypes on Wikidata and Wikipedia"), status), body);
+  (async () => {
+    const qids = await itemsForOrphaCodes(engine, endpoints[settings.endpoint].url, fetch, [...kids.keys()]);
+    const links = await sitelinksLive(fetch, [...qids.values()], chosenLanguage()).catch(() => new Map());
+    const list = [...kids.values()].map((k) => ({ ...k, qid: qids.get(k.code) ?? null })).sort((a, b) => (a.label ?? "").localeCompare(b.label ?? ""));
+    const notOnWikidata = list.filter((k) => !k.qid);
+    const chosen = new Set(notOnWikidata.map((k) => k.code));
+    const textarea = h("textarea", { class: "qs", rows: 8, spellcheck: "false", "aria-label": "QuickStatements commands" });
+    const regenerate = () => { textarea.value = createDiseaseItems(notOnWikidata.filter((k) => chosen.has(k.code)), { parentQid }); };
+    const render = () => {
+      const lang = chosenLanguage();
+      const withArticle = list.filter((k) => k.qid && links.get(k.qid)?.links.has(lang)).length;
+      status.textContent = `${list.length - notOnWikidata.length}/${list.length} on Wikidata · ${withArticle} with ${lang} article`;
+      const rows = list.map((k) => {
+        const l = k.qid ? links.get(k.qid)?.links ?? new Map() : new Map();
+        const cx = l.has(lang) ? null : translateUrl(l, lang);
+        return h("tr", {},
+          h("td", {}, h("a", { href: `#/term/obo:Orphanet_${k.code}` }, k.label ?? `ORPHA:${k.code}`)),
+          h("td", {}, k.qid ? h("a", { href: `https://www.wikidata.org/wiki/${k.qid}`, target: "_blank", rel: "noopener" }, k.qid) : h("span", { class: "check-not-found" }, "not on Wikidata")),
+          h("td", { class: "num" }, String(l.size)),
+          h("td", {}, l.has(lang) ? h("a", { href: articleUrl(lang, l.get(lang)), target: "_blank", rel: "noopener" }, l.get(lang))
+            : cx ? h("a", { href: cx, target: "_blank", rel: "noopener", class: "check-obsolete" }, `missing · translate from ${sourceLanguage(l)}`) : h("span", { class: "check-not-found" }, "missing")));
+      });
+      body.replaceChildren(...h("div", {},
+        h("p", { class: "mode-line" }, languagePicker(() => render()), " ", h("span", { class: "muted" }, "Subtypes are Orphanet's classification children; articles are read live from Wikidata's sitelinks.")),
+        h("div", { class: list.length > 12 ? "scroll" : null }, h("table", {}, h("thead", {}, h("tr", {}, ["subtype", "Wikidata", "Wikipedias", `${lang} article`].map((c) => h("th", {}, c)))), h("tbody", {}, rows))),
+        notOnWikidata.length ? [
+          h("h3", {}, `Create Wikidata items for ${notOnWikidata.length} subtype${notOnWikidata.length === 1 ? "" : "s"}`),
+          h("ul", { class: "fixes" }, notOnWikidata.map((k) => h("li", {}, h("label", {}, h("input", { type: "checkbox", checked: true, onchange: (e) => { e.target.checked ? chosen.add(k.code) : chosen.delete(k.code); regenerate(); } }), " ", k.label ?? k.code, h("span", { class: "muted" }, ` ORPHA:${k.code}`))))),
+          textarea,
+          h("div", { class: "actions" },
+            h("button", { type: "button", class: "primary", onclick: () => window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
+            h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
+          h("p", { class: "muted small" }, `Each new item gets the Orphanet name as label, “rare disease” as description, instance of “type of disease” (Q112193867), its Orphanet ID (P1550)${parentQid ? ` and subclass of ${parentQid} (P279)` : ""}, all citing Orphanet. Check that no item exists under another name first (the search above, or Wikidata's own). You run the edits under your own Wikimedia account.`),
+        ] : null).childNodes);
+      regenerate();
+    };
+    render();
+  })().catch((err) => { status.textContent = "Error"; body.replaceChildren(h("p", { class: "error" }, String(err.message ?? err))); });
+  return el;
 }
 
 // ---------- pages ----------
@@ -536,6 +635,10 @@ async function entityPage(aspectHint, rawKey) {
       const after = grid.querySelector("#panel-works");
       after ? after.after(el) : grid.append(el);
     }).catch((err) => console.warn("Missing-works panel:", err));
+  if ((aspect === "term" || aspect === "topic") && config.wikipediaCoverage !== false && config.sources.includes("wikidata")) {
+    wikipediaPanel(graph).then((el) => { if (el && myRoute === routeId) { const after = grid.querySelector("#panel-details"); after ? after.after(el) : grid.prepend(el); } }).catch((err) => console.warn("Wikipedia panel:", err));
+    subtypesPanel(graph).then((el) => { if (el && myRoute === routeId) { const after = grid.querySelector("#panel-children"); after ? after.after(el) : grid.append(el); } }).catch((err) => console.warn("Subtypes panel:", err));
+  }
   if ((aspect === "term" || aspect === "topic") && config.wikidataFixes && config.sources.includes("wikidata"))
     termFixPanel(graph).then((el) => {
       if (!el || myRoute !== routeId) return;
@@ -552,7 +655,7 @@ async function home() {
   main.replaceChildren(h("section", { class: "home" },
     h("h1", {}, config.tagline),
     config.intro && h("p", { class: "lede" }, config.intro),
-    h("p", {}, config.liveHarvest ? "Search above, or paste an ORCID, DOI, PMID (e.g. pmid:26978244), ISSN, Wikidata QID, OpenAlex id or ontology term ID (e.g. MONDO:0005148)." : "This site shows the pre-built pages below."),
+    h("p", {}, config.liveHarvest ? "Search above, or paste an Orphanet code (e.g. ORPHA:558), an ontology term ID (e.g. MONDO:0007947), a Wikidata QID, ORCID, DOI or PMID." : "This site shows the pre-built pages below."),
     h("h2", {}, "Featured"),
     Object.keys(byAspect).length ? h("div", { class: "snapshots" }, Object.entries(byAspect).map(([a, list]) => h("div", {},
       h("h3", {}, ASPECTS[a]?.title ?? a),
@@ -593,7 +696,7 @@ input.addEventListener("input", () => {
     const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*&language=en&uselang=en&limit=8&search=${encodeURIComponent(term)}`;
     const [res, terms] = await Promise.all([
       fetch(url).then((r) => r.json()).catch(() => null),
-      config.sources.includes("obo") ? searchObo(fetch, term, 5).catch(() => []) : [],
+      config.sources.includes("obo") ? searchObo(fetch, term, 5, config.searchOntologies).catch(() => []) : [],
     ]);
     if (input.value.trim() !== term) return;
     const pick = () => { suggest.hidden = true; input.value = ""; };
