@@ -4,6 +4,7 @@
 //   - For an Orphanet group or disorder: its subtypes, whether each is on Wikidata, and whether it has an article
 //     in the chosen language. Subtypes without an item can be created with QuickStatements (run by the visitor).
 import { findByStatementsLive } from "./wikidata-live.js";
+import { target as vocabTarget, canonicalPrefix, VOCABS } from "./vocab.js";
 
 const API = "https://www.wikidata.org/w/api.php";
 // Wikipedias that are not language editions (all other "<code>wiki" sites are).
@@ -81,4 +82,91 @@ export function createDiseaseItems(disorders, { parentQid = null, language = "en
     if (parentQid) lines.push(`LAST\tP279\t${parentQid}\t${ref}`);
   }
   return lines.join("\n");
+}
+
+// ---------- duplicate checks before creating items ----------
+const OLS_V2 = "https://www.ebi.ac.uk/ols4/api/v2/ontologies/ordo/entities/";
+const enc2 = (s) => encodeURIComponent(encodeURIComponent(s));
+// Search hits that are not diseases: scholarly works and people.
+const NOT_A_DISEASE = /scientific article|scholarly|journal|thesis|book|preprint|conference|patent|clinical trial|Wikimedia|family name|given name|researcher|physician|scientist|gene\b|protein/i;
+
+/** Orphanet's synonyms and cross-references (with Orphanet's mapping type) for one code. */
+export async function orphanetTermInfo(fetchFn, code) {
+  const res = await fetchFn(OLS_V2 + enc2(`http://www.orpha.net/ORDO/Orphanet_${code}`));
+  if (!res.ok) throw new Error(`OLS HTTP ${res.status}`);
+  const t = await res.json();
+  const synonyms = [].concat(t.synonym ?? []).map((s) => (typeof s === "object" ? s.value : s)).filter((s) => typeof s === "string");
+  const xrefs = [];
+  for (const x of t["http://www.geneontology.org/formats/oboInOwl#hasDbXref"] ?? []) {
+    const value = typeof x === "object" ? x.value : x;
+    if (typeof value !== "string" || !value.includes(":")) continue;
+    const note = (x.axioms ?? []).map((a) => a["http://purl.obolibrary.org/obo/ECO_0000218"]).join(" ");
+    const [prefix, ...rest] = value.split(":");
+    xrefs.push({ prefix, id: rest.join(":"), exact: /\bE \(Exact/.test(note), wrong: /\bW \(/.test(note) });
+  }
+  return { synonyms, xrefs };
+}
+
+/**
+ * Wikidata items that may already describe an Orphanet disorder that has no item with its Orphanet ID:
+ *   byId:   items holding a code Orphanet maps the disorder to exactly (OMIM, MONDO, MeSH, ICD-10, UMLS, GARD, …);
+ *   byName: items whose label or alias matches the disorder's name or one of its synonyms (Wikidata's entity search),
+ *           plus full-text hits, leaving out scholarly works and people.
+ * Each candidate carries the Orphanet IDs it already has, if any.
+ */
+export async function duplicateCandidates(fetchFn, { code, label }) {
+  const info = await orphanetTermInfo(fetchFn, code).catch(() => ({ synonyms: [], xrefs: [] }));
+  const pairs = [];
+  for (const x of info.xrefs) {
+    if (!x.exact || x.wrong) continue;
+    const canon = canonicalPrefix(x.prefix);
+    const v = canon && VOCABS[canon];
+    if (!v?.wd || canon === "ORPHANET") continue;
+    const local = vocabTarget(x.prefix, x.id)?.code ?? x.id;
+    for (const value of v.wdForms ? v.wdForms(local) : [local]) pairs.push({ property: v.wd, value, vocabulary: v.label });
+  }
+  const byId = new Map();
+  for (const hit of pairs.length ? await findByStatementsLive(fetchFn, pairs).catch(() => []) : []) {
+    const p = pairs.find((x) => x.property === hit.property && x.value.toUpperCase() === String(hit.value).toUpperCase());
+    const c = byId.get(hit.qid) ?? byId.set(hit.qid, { qid: hit.qid, label: hit.label, shared: [] }).get(hit.qid);
+    c.shared.push(`${p?.vocabulary ?? hit.property} ${hit.value}`);
+  }
+
+  const names = [...new Set([label, ...info.synonyms].filter(Boolean))].slice(0, 6);
+  const byName = new Map();
+  for (const name of names) {
+    const res = await api(fetchFn, { action: "wbsearchentities", search: name, language: "en", type: "item", limit: "5" }).catch(() => null);
+    for (const s of res?.search ?? []) {
+      if (byId.has(s.id) || NOT_A_DISEASE.test(s.description ?? "")) continue;
+      if (!byName.has(s.id)) byName.set(s.id, { qid: s.id, label: s.label, description: s.description ?? "", matched: name });
+    }
+  }
+  // Full-text search finds names that are not a prefix of a label or alias; scholarly articles and people are excluded.
+  const text = await api(fetchFn, { action: "query", list: "search", srsearch: `${label.replace(/["|]/g, " ")} -haswbstatement:P31=Q13442814 -haswbstatement:P31=Q5`, srlimit: "5", srprop: "" }).catch(() => null);
+  const fulltext = (text?.query?.search ?? []).map((s) => s.title).filter((q) => /^Q\d+$/.test(q) && !byId.has(q) && !byName.has(q));
+  if (fulltext.length) {
+    const res = await api(fetchFn, { action: "wbgetentities", ids: fulltext.join("|"), props: "labels|descriptions", languages: "en" }).catch(() => null);
+    for (const q of fulltext) {
+      const e = res?.entities?.[q];
+      const description = e?.descriptions?.en?.value ?? "";
+      if (!e || NOT_A_DISEASE.test(description)) continue;
+      byName.set(q, { qid: q, label: e.labels?.en?.value ?? q, description, matched: "full-text search" });
+    }
+  }
+  // Orphanet IDs the candidates already hold: an item for a different Orphanet code is a weaker match.
+  const all = [...byId.values(), ...byName.values()];
+  if (all.length) {
+    const res = await api(fetchFn, { action: "wbgetentities", ids: all.map((c) => c.qid).slice(0, 50).join("|"), props: "claims|descriptions", languages: "en" }).catch(() => null);
+    for (const c of all) {
+      const e = res?.entities?.[c.qid];
+      c.orphanet = (e?.claims?.P1550 ?? []).map((x) => x.mainsnak?.datavalue?.value).filter(Boolean);
+      c.description ??= e?.descriptions?.en?.value ?? "";
+    }
+  }
+  return { byId: [...byId.values()], byName: [...byName.values()], synonyms: info.synonyms };
+}
+
+/** QuickStatements adding an Orphanet ID to existing items, instead of creating new ones: [{ qid, code }]. */
+export function addOrphanetIds(links, { today = new Date().toISOString().slice(0, 10) } = {}) {
+  return links.map(({ qid, code }) => `${qid}\tP1550\t"${clean(code)}"\tS248\t${ORPHANET}\tS854\t"https://www.orpha.net/en/disease/detail/${clean(code)}"\tS813\t+${today}T00:00:00Z/11`).join("\n");
 }

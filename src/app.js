@@ -8,7 +8,7 @@ import { searchObo } from "./adapters/obo.js";
 import { findByStatementsLive, claimValuesLive } from "./wikidata-live.js";
 import { gatherFixes, buildFixCommands, fixKey } from "./wikidata-fix.js";
 import { gatherMissingWorks, checkOnWikidata, buildWorkCommands, workStatus, P31_LABEL } from "./wikidata-works.js";
-import { sitelinksLive, articleUrl, translateUrl, sourceLanguage, languageName, itemsForOrphaCodes, createDiseaseItems, DEFAULT_LANGUAGES } from "./wikipedia.js";
+import { sitelinksLive, articleUrl, translateUrl, sourceLanguage, languageName, itemsForOrphaCodes, createDiseaseItems, duplicateCandidates, addOrphanetIds, DEFAULT_LANGUAGES } from "./wikipedia.js";
 import { gatherCandidate, findExisting, searchByName, buildCommands, quickStatementsUrl, propertyLabel, propertyUrl } from "./wikidata-create.js";
 
 const engine = new QueryEngine();
@@ -536,9 +536,39 @@ async function subtypesPanel(graph) {
     const links = await sitelinksLive(fetch, [...qids.values()], chosenLanguage()).catch(() => new Map());
     const list = [...kids.values()].map((k) => ({ ...k, qid: qids.get(k.code) ?? null })).sort((a, b) => (a.label ?? "").localeCompare(b.label ?? ""));
     const notOnWikidata = list.filter((k) => !k.qid);
-    const chosen = new Set(notOnWikidata.map((k) => k.code));
+    // Before proposing a new item, look for the disorder under other identifiers and names: Orphanet's exact
+    // mappings (OMIM, MONDO, UMLS, …), its label and synonyms. Only subtypes with no candidate at all are ticked;
+    // for the others, adding the Orphanet ID to the existing item is offered instead.
+    status.textContent = `Checking ${notOnWikidata.length} subtypes for existing items…`;
+    let next = 0;
+    const worker = async () => { while (next < notOnWikidata.length) { const k = notOnWikidata[next++]; k.dups = await duplicateCandidates(fetch, k).catch(() => ({ byId: [], byName: [], synonyms: [] })); } };
+    await Promise.all(Array.from({ length: Math.min(4, notOnWikidata.length) }, worker));
+    const chosen = new Set(notOnWikidata.filter((k) => !k.dups.byId.length && !k.dups.byName.length).map((k) => k.code));
+    const linkTo = new Map(); // code -> qid to add the Orphanet ID to
+    for (const k of notOnWikidata) { const c = k.dups.byId.find((c) => !c.orphanet.length); if (c) linkTo.set(k.code, c.qid); }
     const textarea = h("textarea", { class: "qs", rows: 8, spellcheck: "false", "aria-label": "QuickStatements commands" });
-    const regenerate = () => { textarea.value = createDiseaseItems(notOnWikidata.filter((k) => chosen.has(k.code)), { parentQid }); };
+    const regenerate = () => {
+      textarea.value = [addOrphanetIds([...linkTo].map(([code, qid]) => ({ code, qid }))), createDiseaseItems(notOnWikidata.filter((k) => chosen.has(k.code) && !linkTo.has(k.code)), { parentQid })].filter(Boolean).join("\n");
+    };
+    const wd = (c) => h("a", { href: `https://www.wikidata.org/wiki/${c.qid}`, target: "_blank", rel: "noopener" }, `${c.label ?? c.qid} (${c.qid})`);
+    const radio = (k, value, checked, text) => h("label", { class: "choice" }, h("input", { type: "radio", name: `dup-${k.code}`, checked, onchange: () => {
+      linkTo.delete(k.code); chosen.delete(k.code);
+      if (value === "create") chosen.add(k.code); else if (value !== "skip") linkTo.set(k.code, value);
+      regenerate();
+    } }), " ", text);
+    const subtypeChoice = (k) => {
+      const { byId, byName } = k.dups;
+      const searchLink = h("a", { href: `https://www.wikidata.org/w/index.php?${new URLSearchParams({ search: k.label ?? k.code })}`, target: "_blank", rel: "noopener" }, "search Wikidata yourself");
+      const cands = [...byId.map((c) => ({ ...c, why: `shares ${c.shared.join(", ")}` })), ...byName.map((c) => ({ ...c, why: `name match on “${c.matched}”` }))];
+      const head = [h("b", {}, k.label ?? k.code), h("span", { class: "muted" }, ` ORPHA:${k.code}`)];
+      if (!cands.length) return h("li", {}, ...head, h("div", { class: "choices" },
+        radio(k, "create", true, "create a new item"), radio(k, "skip", false, "skip"),
+        h("span", { class: "muted small" }, " No item found by Orphanet ID, mapped codes, name or synonyms. "), searchLink));
+      return h("li", { class: "dup" }, ...head, h("div", { class: "choices" },
+        cands.map((c) => radio(k, c.qid, linkTo.get(k.code) === c.qid, ["add Orphanet ID to ", wd(c), c.description ? ` · ${c.description}` : "", ` · ${c.why}`,
+          c.orphanet.length ? h("span", { class: "check-obsolete" }, ` · already has Orphanet ID ${c.orphanet.join(", ")}`) : ""])),
+        radio(k, "create", false, "none of these: create a new item"), radio(k, "skip", !linkTo.has(k.code), "skip"), " ", searchLink));
+    };
     const render = () => {
       const lang = chosenLanguage();
       const withArticle = list.filter((k) => k.qid && links.get(k.qid)?.links.has(lang)).length;
@@ -557,13 +587,14 @@ async function subtypesPanel(graph) {
         h("p", { class: "mode-line" }, languagePicker(() => render()), " ", h("span", { class: "muted" }, "Subtypes are Orphanet's classification children; articles are read live from Wikidata's sitelinks.")),
         h("div", { class: list.length > 12 ? "scroll" : null }, h("table", {}, h("thead", {}, h("tr", {}, ["subtype", "Wikidata", "Wikipedias", `${lang} article`].map((c) => h("th", {}, c)))), h("tbody", {}, rows))),
         notOnWikidata.length ? [
-          h("h3", {}, `Create Wikidata items for ${notOnWikidata.length} subtype${notOnWikidata.length === 1 ? "" : "s"}`),
-          h("ul", { class: "fixes" }, notOnWikidata.map((k) => h("li", {}, h("label", {}, h("input", { type: "checkbox", checked: true, onchange: (e) => { e.target.checked ? chosen.add(k.code) : chosen.delete(k.code); regenerate(); } }), " ", k.label ?? k.code, h("span", { class: "muted" }, ` ORPHA:${k.code}`))))),
+          h("h3", {}, `${notOnWikidata.length} subtype${notOnWikidata.length === 1 ? "" : "s"} without an item carrying the Orphanet ID`),
+          h("p", {}, "Each was looked up on Wikidata by the codes Orphanet maps it to (exactly), by name and by Orphanet's synonyms. Where an item turned up, the default is to add the Orphanet ID to it (when it shares a code and has no other Orphanet ID) or to skip; a new item is proposed only when nothing was found."),
+          h("ul", { class: "fixes dups" }, notOnWikidata.map(subtypeChoice)),
           textarea,
           h("div", { class: "actions" },
             h("button", { type: "button", class: "primary", onclick: () => window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
             h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
-          h("p", { class: "muted small" }, `Each new item gets the Orphanet name as label, “rare disease” as description, instance of “type of disease” (Q112193867), its Orphanet ID (P1550)${parentQid ? ` and subclass of ${parentQid} (P279)` : ""}, all citing Orphanet. Check that no item exists under another name first (the search above, or Wikidata's own). You run the edits under your own Wikimedia account.`),
+          h("p", { class: "muted small" }, `Adding to an existing item adds the Orphanet ID (P1550) citing Orphanet. Each new item gets the Orphanet name as label, “rare disease” as description, instance of “type of disease” (Q112193867), its Orphanet ID (P1550)${parentQid ? ` and subclass of ${parentQid} (P279)` : ""}, all citing Orphanet. Name matches are suggestions: check them before choosing. You run the edits under your own Wikimedia account.`),
         ] : null).childNodes);
       regenerate();
     };

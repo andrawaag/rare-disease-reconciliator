@@ -179,3 +179,7 @@ td.check-current { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { font-size: 12px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
 .lang-pick select { font: inherit; }
+
+/* Duplicate checks before creating items */
+.dups .choices { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px 18px; }
+.dups .choice { font-size: 14px; }
