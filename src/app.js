@@ -85,7 +85,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 
-const COLUMN_ASPECT = { work: "work", cited: "work", citing: "work", author: "author", coauthor: "author", venue: "venue", topic: "topic", parent: "term", child: "term", replacedBy: "term", code: "term" };
+const COLUMN_ASPECT = { work: "work", cited: "work", citing: "work", author: "author", coauthor: "author", venue: "venue", topic: "topic", parent: "term", child: "term", replacedBy: "term", code: "term", gene: "topic" };
 const HIDDEN = new Set(["position"]);
 
 function externalUrl(key) {

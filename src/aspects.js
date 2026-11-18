@@ -38,6 +38,7 @@ export const ASPECTS = {
       { id: "mappings", title: "Mappings to other terminologies (checked in OLS)", render: "table", wide: true },
       { id: "parents", title: "Parents (is a)", render: "table" },
       { id: "children", title: "Children", render: "table" },
+      { id: "genes", title: "Associated genes (Wikidata)", render: "table", wide: true, hideEmpty: true },
       { id: "synonyms", title: "Synonyms", render: "table" },
       { id: "per-year", title: "Works about this term per year (Wikidata)", render: "bars" },
       { id: "works", title: "Works about this term (Wikidata)", render: "table" },

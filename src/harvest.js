@@ -8,6 +8,7 @@ import { lookupQid, lookupOboQid, matchQidByCodes, detectAspect, harvestWikidata
 import { harvestObo } from "./adapters/obo.js";
 import { checkConceptsOls } from "./adapters/ols.js";
 import { harvestTogoid, checkNando, togoidIri } from "./adapters/rdfportal.js";
+import { harvestGenesLive } from "./adapters/genes.js";
 import { harvestPubmedWork, harvestPubmedForDois, doiForPmid } from "./adapters/pubmed.js";
 import { findByStatementsLive } from "./wikidata-live.js";
 import { wikidataFormsForObo } from "./vocab.js";
@@ -92,6 +93,7 @@ export async function harvest(ctx, key, aspectHint, onProgress = () => {}) {
 
   // 2. Wikidata, the hub for topics and for further identifiers.
   if (ids.wikidata && on("wikidata")) await step("wikidata", `${aspect} neighbourhood`, () => harvestWikidata(ctx, ids.wikidata, aspect, { obo: ids.obo }));
+  if (aspect === "term" && ids.wikidata && on("wikidata")) await step("wikidata", "gene associations (live)", () => harvestGenesLive(ctx, ids.wikidata));
   const me = iri.wikidata(ids.wikidata ?? "");
   for (const q of quads) {
     if (q.subject.value !== me || q.predicate.value !== NS.schema + "sameAs") continue;

@@ -1,0 +1,9 @@
+# Genes (by HGNC symbol) associated with the disease on Wikidata (genetic association, P2293), with the sources the statements cite
+# ("statedIn") and how the association was determined ("method"). Read live from Wikidata.
+SELECT ?gene (SAMPLE(COALESCE(?sym, ?n)) AS ?geneLabel) (SAMPLE(?h) AS ?hgnc) (SAMPLE(?hl) AS ?hgncLabel)
+       (GROUP_CONCAT(DISTINCT ?src; separator=", ") AS ?statedIn) (GROUP_CONCAT(DISTINCT ?m; separator=", ") AS ?method) WHERE {
+  <{{iri}}> kr:geneAssociation ?a . ?a kr:gene ?gene .
+  OPTIONAL { ?gene schema:name ?n } OPTIONAL { ?gene kr:geneSymbol ?sym }
+  OPTIONAL { ?gene kr:hgnc ?h OPTIONAL { ?h schema:name ?hl } }
+  OPTIONAL { ?a kr:statedIn ?src } OPTIONAL { ?a kr:method ?m }
+} GROUP BY ?gene ORDER BY ?geneLabel LIMIT 500
