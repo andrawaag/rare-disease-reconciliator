@@ -5,34 +5,40 @@
       "aspect": "term",
       "iri": "http://www.orpha.net/ORDO/Orphanet_558",
       "file": "data/term/obo_Orphanet_558.nq.gz",
-      "quads": 13774,
-      "bytes": 203925,
-      "generated": "2026-11-18T08:33:28.790Z",
+      "quads": 119,
+      "bytes": 1946,
+      "generated": "2026-11-18T09:37:05.458Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
           "quads": 83,
-          "ms": 1682
+          "ms": 333
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
-          "quads": 19449,
-          "ms": 9892
+          "error": "Fetch timed out for https://qlever.dev/api/wikidata after 60000 ms",
+          "ms": 79072
+        },
+        {
+          "source": "wikidata",
+          "what": "gene associations (live)",
+          "quads": 8,
+          "ms": 79837
         },
         {
           "source": "rdfportal",
           "what": "TogoID links and ClinVar variants",
           "quads": 19,
-          "ms": 6512
+          "ms": 1893
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
-          "quads": 18,
-          "ms": 535
+          "quads": 9,
+          "ms": 129
         }
       ]
     },
@@ -41,34 +47,40 @@
       "aspect": "term",
       "iri": "http://www.orpha.net/ORDO/Orphanet_586",
       "file": "data/term/obo_Orphanet_586.nq.gz",
-      "quads": 13047,
-      "bytes": 187016,
-      "generated": "2026-11-18T08:33:45.680Z",
+      "quads": 13222,
+      "bytes": 188710,
+      "generated": "2026-11-18T09:43:50.859Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
           "quads": 146,
-          "ms": 1042
+          "ms": 277
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
           "quads": 18824,
-          "ms": 7117
+          "ms": 194661
+        },
+        {
+          "source": "wikidata",
+          "what": "gene associations (live)",
+          "quads": 175,
+          "ms": 28617
         },
         {
           "source": "rdfportal",
           "what": "TogoID links and ClinVar variants",
           "quads": 16,
-          "ms": 4871
+          "ms": 1719
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
           "quads": 24,
-          "ms": 3301
+          "ms": 232
         }
       ]
     },
@@ -77,34 +89,40 @@
       "aspect": "term",
       "iri": "http://www.orpha.net/ORDO/Orphanet_98896",
       "file": "data/term/obo_Orphanet_98896.nq.gz",
-      "quads": 13596,
-      "bytes": 198619,
-      "generated": "2026-11-18T08:34:10.670Z",
+      "quads": 13614,
+      "bytes": 198948,
+      "generated": "2026-11-18T09:46:05.723Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
           "quads": 70,
-          "ms": 5325
+          "ms": 258
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
           "quads": 19395,
-          "ms": 10885
+          "ms": 95092
+        },
+        {
+          "source": "wikidata",
+          "what": "gene associations (live)",
+          "quads": 18,
+          "ms": 14164
         },
         {
           "source": "rdfportal",
           "what": "TogoID links and ClinVar variants",
           "quads": 16,
-          "ms": 2504
+          "ms": 1821
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
           "quads": 15,
-          "ms": 5814
+          "ms": 122
         }
       ]
     },
@@ -113,34 +131,40 @@
       "aspect": "term",
       "iri": "http://www.orpha.net/ORDO/Orphanet_284993",
       "file": "data/term/obo_Orphanet_284993.nq.gz",
-      "quads": 144,
-      "bytes": 2020,
-      "generated": "2026-11-18T08:36:19.104Z",
+      "quads": 214,
+      "bytes": 2617,
+      "generated": "2026-11-18T09:47:11.670Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
           "quads": 59,
-          "ms": 12182
+          "ms": 254
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
           "quads": 74,
-          "ms": 1120
+          "ms": 45924
+        },
+        {
+          "source": "wikidata",
+          "what": "gene associations (live)",
+          "quads": 70,
+          "ms": 6842
         },
         {
           "source": "rdfportal",
           "what": "TogoID links and ClinVar variants",
           "quads": 6,
-          "ms": 2601
+          "ms": 1711
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
           "quads": 10,
-          "ms": 1787
+          "ms": 136
         }
       ]
     },
@@ -149,40 +173,46 @@
       "aspect": "term",
       "iri": "http://purl.obolibrary.org/obo/MONDO_0007947",
       "file": "data/term/obo_MONDO_0007947.nq.gz",
-      "quads": 13810,
-      "bytes": 204551,
-      "generated": "2026-11-18T08:36:30.343Z",
+      "quads": 13818,
+      "bytes": 204768,
+      "generated": "2026-11-18T09:47:45.738Z",
       "endpoint": "https://qlever.dev/api/wikidata",
       "log": [
         {
           "source": "obo",
           "what": "term, hierarchy and cross-references (OLS)",
           "quads": 124,
-          "ms": 1299
+          "ms": 239
         },
         {
           "source": "wikidata",
           "what": "term neighbourhood",
           "quads": 19451,
-          "ms": 4177
+          "ms": 23483
+        },
+        {
+          "source": "wikidata",
+          "what": "gene associations (live)",
+          "quads": 8,
+          "ms": 3862
         },
         {
           "source": "rdfportal",
           "what": "TogoID links and ClinVar variants",
           "quads": 31,
-          "ms": 3496
+          "ms": 1869
         },
         {
           "source": "ols",
           "what": "codes checked in OLS",
           "quads": 24,
-          "ms": 1649
+          "ms": 165
         },
         {
           "source": "rdfportal",
           "what": "NANDO codes checked",
           "quads": 9,
-          "ms": 1719
+          "ms": 235
         }
       ]
     }
@@ -196,5 +226,5 @@
     "wikidata:Q1648484": "obo:Orphanet_98896",
     "wikidata:Q6759035": "obo:Orphanet_284993"
   },
-  "generated": "2026-11-18T08:36:30.345Z"
+  "generated": "2026-11-18T09:47:45.740Z"
 }
