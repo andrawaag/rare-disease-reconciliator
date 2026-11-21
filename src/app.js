@@ -9,6 +9,7 @@ import { findByStatementsLive, claimValuesLive, statementsLive } from "./wikidat
 import { gatherFixes, buildFixCommands, fixKey, deprecationEdit, statementValue } from "./wikidata-fix.js";
 import { gatherMissingWorks, checkOnWikidata, buildWorkCommands, workStatus, P31_LABEL } from "./wikidata-works.js";
 import { sitelinksLive, articleUrl, translateUrl, sourceLanguage, languageName, itemsForOrphaCodes, createDiseaseItems, duplicateCandidates, addOrphanetIds, DEFAULT_LANGUAGES } from "./wikipedia.js";
+import { personFacts, profileCandidates, profileCommands } from "./profile-match.js";
 import { gatherCandidate, findExisting, searchByName, buildCommands, quickStatementsUrl, propertyLabel, propertyUrl } from "./wikidata-create.js";
 
 const engine = new QueryEngine();
@@ -256,6 +257,7 @@ function downloadGraph(graph) {
 }
 
 // ---------- Add to Wikidata (authors without a Wikidata item) ----------
+const normName = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.\-,']/g, " ").replace(/\s+/g, " ").trim();
 async function wikidataPanel(graph) {
   const run = async (file) => (await engine.queryBindings(fillPanel(await loadText("queries/prefixes.rq"), await loadText(file), graph.iri), { sources: [graph.store], unionDefaultGraph: true })).toArray();
   const cand = await gatherCandidate(run, graph.iri);
@@ -285,7 +287,10 @@ async function wikidataPanel(graph) {
     return el;
   }
 
-  let target = existing[0]?.qid ?? null;
+  // An item with exactly this name that is not a publication is most likely the same person: add to it by default
+  // rather than creating a duplicate (the visitor can still choose "Create a new item instead").
+  const sameName = byName.filter((m) => normName(m.label) === normName(cand.label) && !/article|journal|book|thesis|publication|review|chapter/i.test(m.description ?? ""));
+  let target = existing[0]?.qid ?? (sameName.length === 1 ? sameName[0].qid : null);
   const textarea = h("textarea", { class: "qs", rows: 10, spellcheck: "false", "aria-label": "QuickStatements commands" });
   // For an existing item, read its statements live and propose only the identifiers it lacks. An item picked from the
   // name matches was not found through these identifiers, so the lookups above say nothing about what it holds.
@@ -337,6 +342,50 @@ async function wikidataPanel(graph) {
       h("button", { type: "button", class: "primary", onclick: () => window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
       h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
     h("p", { class: "muted small" }, "Review and edit the commands above before running them. In QuickStatements, log in, press Run, and check the new item. Then refresh this page’s data (the Refresh or “Fetch live instead” button at the top) to see it linked.")).childNodes);
+  regenerate();
+  return el;
+}
+
+// ---------- ORCID and OpenAlex profiles for a Wikidata person without them ----------
+async function profilePanel(graph) {
+  const qid = graph.iri.startsWith(WD_ENTITY) ? graph.iri.slice(WD_ENTITY.length) : null;
+  if (!qid || graph.aspect !== "author" || !config.sources.includes("wikidata")) return null;
+  const person = await personFacts(fetch, qid);
+  if (person.orcid.length && person.openalex.length) return null;
+  const cands = await profileCandidates(fetch, person);
+  const wd = (q) => h("a", { href: `https://www.wikidata.org/wiki/${q}`, target: "_blank", rel: "noopener" }, q);
+  const missing = [!person.orcid.length && "ORCID", !person.openalex.length && "OpenAlex ID"].filter(Boolean).join(" or ");
+  const body = h("div", { class: "panel-body" });
+  const el = h("section", { class: "panel wide wd-create", id: "panel-profiles" },
+    h("header", {}, h("h2", {}, "Find this person's ORCID and OpenAlex profiles"), h("span", { class: "timing" }, `${cands.length} candidate${cands.length === 1 ? "" : "s"}`)), body);
+  const intro = h("p", {}, wd(qid), ` has no ${missing} on Wikidata, so this page has only Wikidata's own statements: no works from ORCID, OpenAlex, Crossref or PubMed. `,
+    "These profiles carry the same name or an employer of the item", person.employers.length ? ` (${person.employers.map((e) => e.label).join(", ")})` : "", ". Pick the right one to see the person's works, and add its IDs to Wikidata so this page links them.");
+  if (!cands.length) { body.replaceChildren(intro, h("p", { class: "muted" }, `No ORCID or OpenAlex profile found for “${person.label}”.`)); return el; }
+  let chosen = cands.find((c) => c.likely && !c.onWikidata.length) ?? null;
+  const textarea = h("textarea", { class: "qs", rows: 3, spellcheck: "false", "aria-label": "QuickStatements commands" });
+  const regenerate = () => { textarea.value = chosen ? profileCommands(qid, chosen, { has: { orcid: person.orcid, openalex: person.openalex } }) : ""; };
+  const link = (href, text) => h("a", { href, target: "_blank", rel: "noopener" }, text);
+  const rows = cands.slice(0, 8).map((c) => {
+    const key = c.orcid ? `orcid:${c.orcid}` : `openalex:${c.openalex}`;
+    return h("li", { class: "choice" }, h("label", {},
+      h("input", { type: "radio", name: "profile", checked: c === chosen, onchange: () => { chosen = c; regenerate(); } }), " ",
+      h("b", {}, c.name), " · ",
+      c.orcid ? ["ORCID ", link(`https://orcid.org/${c.orcid}`, c.orcid), " · "] : "",
+      c.openalex ? ["OpenAlex ", link(`https://openalex.org/${c.openalex}`, c.openalex), c.works != null ? ` (${c.works} works)` : "", " · "] : "",
+      c.institutions.length ? `${c.institutions.slice(0, 3).join("; ")} · ` : "",
+      [c.sameName && "same name", c.sharedEmployers.length && `shares employer ${c.sharedEmployers.join(", ")}`].filter(Boolean).join(", "),
+      c.onWikidata.length ? h("span", { class: "warn-inline" }, [" · already on ", c.onWikidata.map((x, i) => [i ? ", " : "", wd(x.qid)]), ": probably someone else, or a duplicate item"]) : ""),
+      " ", h("a", { href: `#/author/${key}` }, "open this profile's page"));
+  });
+  body.replaceChildren(intro,
+    h("ul", { class: "dups choices" }, rows,
+      h("li", { class: "choice" }, h("label", {}, h("input", { type: "radio", name: "profile", checked: !chosen, onchange: () => { chosen = null; regenerate(); } }), " none of these"))),
+    h("h3", {}, "QuickStatements"),
+    textarea,
+    h("div", { class: "actions" },
+      h("button", { type: "button", class: "primary", onclick: () => textarea.value && window.open(quickStatementsUrl(textarea.value), "_blank", "noopener") }, "Open in QuickStatements"),
+      h("button", { type: "button", onclick: async (e) => { try { await navigator.clipboard.writeText(textarea.value); e.target.textContent = "Copied"; } catch { textarea.select(); } } }, "Copy commands")),
+    h("p", { class: "muted small" }, "A profile is preselected only when the name matches and it shares an employer with the item. Check the works on the profile's page first: some names belong to several people. The IDs cite OpenAlex (or ORCID). You run the edits under your own Wikimedia account; then refresh this page to load the works."));
   regenerate();
   return el;
 }
@@ -683,6 +732,7 @@ async function entityPage(aspectHint, rawKey) {
   }
   if (aspect === "author" && config.wikidataCreate && config.sources.includes("wikidata"))
     wikidataPanel(graph).then((el) => { if (el && myRoute === routeId) grid.prepend(el); }).catch((err) => console.warn("Add-to-Wikidata panel:", err));
+    profilePanel(graph).then((el) => { if (el && myRoute === routeId) grid.prepend(el); }).catch((err) => console.warn("Profiles panel:", err));
   if (aspect === "author" && config.wikidataWorks && config.sources.includes("wikidata"))
     missingWorksPanel(graph).then((el) => {
       if (!el || myRoute !== routeId) return;

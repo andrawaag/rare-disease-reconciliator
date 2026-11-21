@@ -112,9 +112,31 @@ export async function harvestWikidata(ctx, qid, aspect, opts = {}) {
   const main = iri.wikidata(qid);
   const live = raw.some((q) => q.subject.value === main) ? [] : await entityQuadsLive(ctx.fetch, ctx.DF, qid).catch(() => []);
   raw.push(...live);
+  if (aspect === "author") return mapToSchema(ctx.DF, raw, qid, aspect).concat(await externalIds(ctx, qid).catch(() => []));
   if (!["term", "topic"].includes(aspect)) return mapToSchema(ctx.DF, raw, qid, aspect);
   const codes = await polite(async () => (await ctx.engine.queryQuads(mappingQuery(qid), { sources: source(ctx), httpTimeout: 60000 })).toArray()).catch(() => []);
   return mapToSchema(ctx.DF, raw, qid, aspect).concat(mapCodes(ctx.DF, codes.length ? codes : live, qid, opts.obo));
+}
+
+// A person's other identifiers on Wikidata (library authorities, profiles, …), each with its link from the
+// property's formatter URL (P1630). Shown on author pages, which otherwise depend on ORCID and OpenAlex.
+async function externalIds(ctx, qid) {
+  const q = `PREFIX wd: <${NS.wd}> PREFIX wdt: <${NS.wdt}> PREFIX wikibase: <http://wikiba.se/ontology#> PREFIX rdfs: <${NS.rdfs}>
+SELECT ?prop ?label ?value (SAMPLE(?f) AS ?fmt) WHERE { wd:${qid} ?d ?value . ?prop wikibase:directClaim ?d ; wikibase:propertyType wikibase:ExternalId .
+  OPTIONAL { ?prop rdfs:label ?label FILTER(LANG(?label) = "en") } OPTIONAL { ?prop wdt:P1630 ?f } } GROUP BY ?prop ?label ?value`;
+  const rows = await polite(async () => (await ctx.engine.queryBindings(q, { sources: source(ctx), httpTimeout: 60000 })).toArray());
+  const out = quadSink(ctx.DF, "wikidata");
+  const main = iri.wikidata(qid);
+  for (const r of rows) {
+    const p = r.get("prop").value.split("/").pop(), v = r.get("value").value, fmt = r.get("fmt")?.value;
+    const node = `urn:koetai-reconciliator:id:${p}:${encodeURIComponent(v)}`;
+    out.add(main, S + "identifier", node);
+    out.lit(node, S + "propertyID", p);
+    out.lit(node, S + "value", v);
+    out.lit(node, S + "name", r.get("label")?.value ?? p);
+    if (fmt) out.add(node, S + "url", fmt.replace("$1", encodeURIComponent(v).replace(/%2F/g, "/")));
+  }
+  return out.quads;
 }
 
 // Terminology codes on the item itself (SNOMED CT, MeSH, ICD, UMLS, OBO ontologies, …) and P2888 exact match.

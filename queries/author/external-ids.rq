@@ -1,0 +1,7 @@
+# The person's other identifiers on Wikidata (VIAF, ISNI, GND, Library of Congress, profiles, …), linked through
+# each property's formatter URL. ORCID and OpenAlex IDs are the ones this site harvests; these are for reference.
+SELECT ?scheme ?id (SAMPLE(?v) AS ?idLabel) ?property WHERE {
+  <{{iri}}> schema:identifier ?n . ?n schema:propertyID ?property ; schema:value ?v ; schema:name ?scheme .
+  OPTIONAL { ?n schema:url ?u }
+  BIND(COALESCE(?u, ?v) AS ?id)
+} GROUP BY ?scheme ?id ?property ORDER BY LCASE(?scheme)

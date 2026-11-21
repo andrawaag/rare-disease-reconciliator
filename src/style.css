@@ -184,3 +184,5 @@ td.check-current { color: var(--muted); }
 /* Duplicate checks before creating items */
 .dups .choices { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px 18px; }
 .dups .choice { font-size: 14px; }
+#panel-profiles ul.choices { list-style: none; padding: 0; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+#panel-profiles .warn-inline { color: var(--crossref); }

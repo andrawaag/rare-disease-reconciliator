@@ -9,6 +9,7 @@ export const ASPECTS = {
       { id: "coauthors", title: "Co-authors", render: "table" },
       { id: "topics", title: "Topics", render: "table" },
       { id: "venues", title: "Venues", render: "table" },
+      { id: "external-ids", title: "Other identifiers (Wikidata)", render: "table", wide: true, hideEmpty: true },
     ],
   },
   work: {
